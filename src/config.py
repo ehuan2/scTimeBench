@@ -48,6 +48,12 @@ class Config:
             help="List of metrics to compute",
         )
 
+        parser.add_argument(
+            "--available",
+            action="store_true",
+            help="Show available models, datasets, and metrics",
+        )
+
         # Parse known arguments
         args = parser.parse_args()
 
@@ -91,7 +97,7 @@ class Config:
                 hasattr(self, field) and getattr(self, field) is not None
             ), f"Required field '{field}' must be specified in config file or as --{field}"
 
-        dataset_required_fields = ["data_path", "preprocessed_dir"]
+        dataset_required_fields = ["data_path", "preprocessed_dir", "name"]
         model_required_fields = ["name"]
 
         for field in dataset_required_fields:
@@ -105,11 +111,10 @@ class Config:
             ), f"Required model field '{field}' must be specified in config file"
 
         # Validate paths exist
+        dataset_path_keys = ["data_path", "cell_lineage_file", "cell_equivalence_file"]
         paths = {
-            *self.dataset.values(),
+            *{value for key, value in self.dataset.items() if key in dataset_path_keys},
         }
 
         for path in paths:
             assert os.path.exists(path), f"Path for '{path}' does not exist: {path}"
-
-        print(f"Configuration loaded successfully with fields: {self.__dict__}")

@@ -6,11 +6,34 @@ from config import Config
 
 # required to register metrics
 import metrics
+import dataset
+import models
 
 if False:
     metrics  # to avoid unused import warning
+    dataset  # to avoid unused import warning
+    models  # to avoid unused import warning
 
 from metrics.base import METRIC_REGISTRY
+from models.base import MODEL_REGISTRY
+from dataset.base import DATASET_REGISTRY
+
+
+def print_available():
+    """
+    Print available models, datasets, and metrics.
+    """
+    print("Available Models:")
+    for model_name in MODEL_REGISTRY.keys():
+        print(f" - {model_name}")
+
+    print("\nAvailable Datasets:")
+    for dataset_name in DATASET_REGISTRY.keys():
+        print(f" - {dataset_name}")
+
+    print("\nAvailable Metrics:")
+    for metric_name in METRIC_REGISTRY.keys():
+        print(f" - {metric_name}")
 
 
 def run_metrics(config: Config):
@@ -27,4 +50,9 @@ def run_metrics(config: Config):
 
 if __name__ == "__main__":
     config = Config()
+
+    if config.available:
+        print_available()
+        exit()
+
     run_metrics(config)

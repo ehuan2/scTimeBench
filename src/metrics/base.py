@@ -5,6 +5,7 @@ depend on the dataset that they belong to.
 from config import Config
 from typing import final
 from models.base import MODEL_REGISTRY
+from dataset.base import DATASET_REGISTRY
 
 METRIC_REGISTRY = {}
 
@@ -136,4 +137,14 @@ class BaseMetric:
         """
         self._populate_dataset_filters()
 
+        # TODO
         # now we check the cache based on the set preprocessed directory
+        # stop if the cache exists
+
+        # if the cache does not exist, we go ahead and process the dataset
+        self.dataset = DATASET_REGISTRY[self.config.dataset["name"]](self.config)
+        self.dataset.load_data()
+        self.dataset.apply_filters(self.dataset_filters)
+
+        # TODO
+        # now we cache the processed dataset for future use
