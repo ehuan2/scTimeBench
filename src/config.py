@@ -9,6 +9,13 @@ import argparse
 import os
 import yaml
 
+METRIC_REGISTRY = {}
+
+
+def register_metric(cls):
+    """Decorator to register a metric class in the METRIC_REGISTRY."""
+    METRIC_REGISTRY[cls.__name__] = cls
+
 
 class Config:
     """Config class for both yaml and cli arguments."""
@@ -43,6 +50,14 @@ class Config:
             "--cell_equivalence_file",
             type=str,
             help="Path to the cell equivalence mapping file",
+        )
+
+        # add metrics argument
+        parser.add_argument(
+            "--metrics",
+            type=str,
+            nargs="+",
+            help="List of metrics to compute",
         )
 
         # Parse known arguments

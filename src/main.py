@@ -2,12 +2,15 @@
 main.py. Entrypoint for measuring trajectories in single-cell data,
 particularly involving gene regulatory networks and cell lineage information.
 """
-from config import Config
+from config import METRIC_REGISTRY
+
+# required to register metrics
+import metrics
+
+if False:
+    metrics  # to avoid unused import warning
 
 if __name__ == "__main__":
-    config = Config()
+    # config = Config()
 
-    # now based on this config, we want to get:
-    # 1) the model that we'll be using
-    # 2) the dataset that we'll be using
-    # 3) the metrics that we'll be using
+    print(METRIC_REGISTRY)  # For debugging: print registered metrics

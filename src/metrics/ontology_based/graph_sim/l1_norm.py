@@ -1,6 +1,8 @@
-from src.metrics.ontology_based.graph_sim.base import GraphSimMetric
+from metrics.ontology_based.graph_sim.base import GraphSimMetric
+from config import register_metric
 
 
+@register_metric
 class L1Norm(GraphSimMetric):
     def eval(self, graph_pred):
         """

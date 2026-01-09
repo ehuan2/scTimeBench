@@ -2,19 +2,16 @@
 Base class for all metrics. They should all implement the eval method, and
 depend on the dataset that they belong to.
 """
-from src.config import Config
+from config import Config
+
 
 # also store a registry of metrics of name to class
-METRIC_REGISTRY = {}
-
-
 class BaseMetric:
     def __init__(self, name: str, dataset: str, config: Config):
         self.name = name
         self.dataset = dataset
         self.config = config
         self.build_reference_objects()
-        METRIC_REGISTRY[name] = self.__class__
 
     def eval(self, *args, **kwargs):
         raise NotImplementedError("Subclasses should implement this method.")

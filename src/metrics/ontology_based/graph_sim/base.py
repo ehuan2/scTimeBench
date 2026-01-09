@@ -1,7 +1,7 @@
 """
 Graph Similarity Metric Base Class
 """
-from src.metrics.base import BaseMetric
+from metrics.base import BaseMetric
 
 
 class GraphSimMetric(BaseMetric):
