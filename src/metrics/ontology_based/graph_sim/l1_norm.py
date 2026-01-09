@@ -1,10 +1,7 @@
-"""
-Graph Similarity Metric Base Class
-"""
-from src.metrics.base import BaseMetric
+from src.metrics.ontology_based.graph_sim.base import GraphSimMetric
 
 
-class GraphSimMetric(BaseMetric):
+class L1Norm(GraphSimMetric):
     def eval(self, graph_pred):
         """
         The graph similarity metrics we will be using will take in
