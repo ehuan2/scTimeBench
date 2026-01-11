@@ -35,12 +35,12 @@ class DatabaseManager:
         # TODO: Create other tables for model checkpoints, predictions, and metric results
         self.conn.commit()
 
-    def insert_processed_dataset(self, dataset: BaseDataset, filters, path):
+    def insert_processed_dataset(self, dataset: BaseDataset, path):
         cursor = self.conn.cursor()
 
         # filters will be given as a list of dataset filter class objects
         # turn these into a string representation
-        filters = dataset.encode_filters(filters)
+        filters = dataset.encode_filters()
 
         cursor.execute(
             """
@@ -51,12 +51,12 @@ class DatabaseManager:
         )
         self.conn.commit()
 
-    def get_processed_dataset_path(self, dataset: BaseDataset, filters):
+    def get_processed_dataset_path(self, dataset: BaseDataset):
         cursor = self.conn.cursor()
 
         # filters will be given as a list of dataset filter class objects
         # turn these into a string representation
-        filters = dataset.encode_filters(filters)
+        filters = dataset.encode_filters()
 
         cursor.execute(
             """

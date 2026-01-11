@@ -44,28 +44,29 @@ class BaseMetric:
                 base.submetrics.append(cls)
 
     # ** METRIC EVALUATION SECTION, main function to be called (no others should be called) **
+    def _eval(self):
+        """
+        Subclasses should implement this method to evaluate the metric.
+        """
+        raise NotImplementedError("Subclasses should implement this method.")
+
     @final
-    def eval(self, *args, **kwargs):
+    def eval(self):
         """
         Evaluates the model on the dataset according to the metric.
 
         First, however, this method will:
         1) preprocess the dataset according to the metric's needs
-        2) train the model on the preprocess dataset
-        3) grab whatever the model needs to evaluate the metric
-        4) evaluate the metric
+        2) train the model on the preprocess dataset and test it
+        3) evaluate the metric
         """
         # 1) initialize the dataset splits dependent on the metric
         self._init_dataset()
 
-        # TODO: figure this out below
-        # # 2) train the model on the dataset
-        # self.model.train(self.dataset)
+        # 2) train the model on the dataset
+        # self.model.train_and_test(self.dataset)
 
-        # # 3) evaluate the model according to the metric
-        # self.model.test(self.dataset)
-
-        # 4) evaluate the metric based on the model outputs
+        # 3) evaluate the metric based on the model outputs
         self._eval()
 
     # ** METRIC FEATURE SPECS SECTION **
@@ -113,7 +114,7 @@ class BaseMetric:
                 )
 
     # ** PREPROCESSING DATASET SECTION **
-    def _populate_dataset_filters(self):
+    def _get_dataset_filters(self):
         """
         Populate the dataset filters required for the metric.
         Expect a list of dataset filter instances.
@@ -133,14 +134,13 @@ class BaseMetric:
         4. Caches the processed dataset for future use.
         """
         # 1) initialize the dataset and the dataset filters based on the metric
-        self.dataset = DATASET_REGISTRY[self.config.dataset["name"]](self.config)
-        self._populate_dataset_filters()
+        self.dataset = DATASET_REGISTRY[self.config.dataset["name"]](
+            self.config, self._get_dataset_filters()
+        )
 
         # now we check the cache based on the set preprocessed directory
         # stop if the cache exists
-        cached_dataset_path = self.db_manager.get_processed_dataset_path(
-            self.dataset, self.dataset_filters
-        )
+        cached_dataset_path = self.db_manager.get_processed_dataset_path(self.dataset)
 
         if cached_dataset_path is not None:
             print("Processed dataset cache found. Loading from cache.")
@@ -151,8 +151,6 @@ class BaseMetric:
         # this will save out a cached version as well, which we will then
         # insert into the database
         print("No processed dataset cache found. Processing dataset.")
-        save_path = self.dataset.load_data(self.dataset_filters)
+        save_path = self.dataset.load_data()
 
-        self.db_manager.insert_processed_dataset(
-            self.dataset, self.dataset_filters, save_path
-        )
+        self.db_manager.insert_processed_dataset(self.dataset, save_path)

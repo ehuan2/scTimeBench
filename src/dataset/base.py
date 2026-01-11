@@ -60,8 +60,9 @@ class ObservationColumns(Enum):
 
 
 class BaseDataset:
-    def __init__(self, config):
+    def __init__(self, config, dataset_filters):
         self.config = config
+        self.dataset_filters = dataset_filters
 
     def __init_subclass__(cls):
         register_dataset(cls)
@@ -74,7 +75,7 @@ class BaseDataset:
         """
         raise NotImplementedError("Subclasses should implement this method.")
 
-    def encode_filters(self, dataset_filters):
+    def encode_filters(self):
         """
         Generate a string representation of the applied dataset filters
         and their parameters.
@@ -83,11 +84,11 @@ class BaseDataset:
         """
         filter_names = [
             {"name": type(f).__name__, "parameters": f._parameters()}
-            for f in dataset_filters
+            for f in self.dataset_filters
         ]
         return json.dumps(filter_names, sort_keys=True)
 
-    def encode_dataset_path(self, dataset_filters):
+    def encode_dataset_path(self):
         """
         Generate a hash for the processed dataset based on the applied filters
         and the original dataset configuration.
@@ -95,7 +96,7 @@ class BaseDataset:
         This can be used to cache processed datasets.
         """
         # Create a unique string based on dataset config and filter names
-        filter_names = self.encode_filters(dataset_filters)
+        filter_names = self.encode_filters(self.dataset_filters)
         unique_string = json.dumps(
             {
                 "dataset_config": self.config.dataset,
@@ -106,7 +107,7 @@ class BaseDataset:
         # Generate a base64 encoded string of the unique string
         return hashlib.sha256(unique_string.encode()).hexdigest() + ".h5ad"
 
-    def load_data(self, filters):
+    def load_data(self):
         """
         This ensures that the dataset loading is done properly.
 
@@ -131,12 +132,12 @@ class BaseDataset:
         ), f"Dataset must have '{ObservationColumns.TIMEPOINT.value}' in observation metadata."
 
         # then we put this through the dataset filtering process
-        for dataset_filter in filters:
+        for dataset_filter in self.dataset_filters:
             self.data = dataset_filter.filter(self.data)
 
         # now we cache the processed dataset for future use
         os.makedirs(self.config.dataset["preprocessed_dir"], exist_ok=True)
-        dataset_hash = self.encode_dataset_path(filters)
+        dataset_hash = self.encode_dataset_path()
         cached_dataset_path = os.path.join(
             self.config.dataset["preprocessed_dir"], dataset_hash
         )

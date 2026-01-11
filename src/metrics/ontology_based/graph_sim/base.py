@@ -27,8 +27,8 @@ class GraphSimMetric(BaseMetric):
     def _graph_sim_eval(self, graph_pred, graph_ref):
         raise NotImplementedError("Subclasses should implement this method.")
 
-    def _populate_dataset_filters(self):
+    def _get_dataset_filters(self):
         """
-        Populate the dataset filters required for the metric.
+        Creates the dataset filters required for the metric.
         """
-        self.dataset_filters = [LineageDatasetFilter(self.config)]
+        return [LineageDatasetFilter(self.config)]
