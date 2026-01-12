@@ -1,0 +1,17 @@
+dataset:
+  name: SuoDataset
+  data_path: ../data/suo/main.h5ad
+  cell_lineage_file: ./examples/cell_lineages/b_cells/b_cell_line.txt
+  cell_equivalence_file: ./examples/cell_lineages/b_cells/equal_names.txt
+  preprocessed_dir: ../data/preprocessed/
+
+model:
+  name: scNODE
+  train_script: scNODE_train.sh
+  generate_script: scNODE_generate.sh
+  metadata:
+    description: "Can be anything here that describes the model, e.g., hyperparameters, which will ensure different runs with different hyperparameters are cached separately."
+
+metrics:
+ - L1Norm
+ - GraphEditDistance
