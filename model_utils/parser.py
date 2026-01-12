@@ -26,7 +26,7 @@ def process_yaml(yaml_path):
 
     paths = ["train_data_path", "test_data_path", "output_path", "output_file_name"]
     for path in paths:
-        if not hasattr(yaml_config, path):
+        if path not in yaml_config:
             raise ValueError(f"YAML configuration missing required path: {path}")
 
         # verify the data paths exist:
@@ -58,31 +58,38 @@ def main(model_class: BaseModel):
     yaml_config = process_yaml(args.yaml_config)
 
     if args.train:
-        # Load data
-        ann_data = sc.read_h5ad(yaml_config["train_data_path"])
+        # first we check to see if the checkpointed model exists
+        if os.path.exists(os.path.join(yaml_config["output_path"], "model.pkl")):
+            print(
+                f'Checkpointed model found at {os.path.join(yaml_config["output_path"], "model.pkl")}. Skipping training.'
+            )
+            # we don't exit here because the user may want to run testing right after
+        else:
+            # Load data
+            ann_data = sc.read_h5ad(yaml_config["train_data_path"])
 
-        # Initialize and train model
-        model = model_class()
-        model.train(ann_data)
+            # Initialize and train model
+            model = model_class()
+            print(f"Training model: {model_class.__name__}")
+            model.train(ann_data)
+            print("Training complete.")
 
-        # Save the trained model
-        with open(os.path.join(yaml_config["output_path"], "model.pkl"), "wb") as f:
-            pickle.dump(model, f)
+            # Save the trained model
+            print(f'Saving trained model to {yaml_config["output_path"]}/model.pkl')
+            with open(os.path.join(yaml_config["output_path"], "model.pkl"), "wb") as f:
+                pickle.dump(model, f)
 
     if args.test:
         model = model_class()
         # Load the trained model
+        print(f'Loading trained model from {yaml_config["output_path"]}/model.pkl')
         with open(os.path.join(yaml_config["output_path"], "model.pkl"), "rb") as f:
             model = pickle.load(f)
 
         # Load test data
         test_ann_data = sc.read_h5ad(yaml_config["test_data_path"])
-        # Generate samples
-        generated_samples = model.generate(test_ann_data)
-
-        # Save generated samples
-        with open(
+        # Generate samples -- we'll move the saving of generated samples outside of this script
+        model.generate(
+            test_ann_data,
             os.path.join(yaml_config["output_path"], yaml_config["output_file_name"]),
-            "wb",
-        ) as f:
-            pickle.dump(generated_samples, f)
+        )

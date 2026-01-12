@@ -6,6 +6,7 @@ from enum import Enum
 import yaml
 import json
 import hashlib
+import subprocess
 from dataset.base import BaseDataset
 
 
@@ -52,12 +53,13 @@ class BaseModel:
 
         raise ValueError(f"Model features not defined for model: {model_name}")
 
-    def train_and_test(self, dataset):
+    def train_and_test(self, yaml_config_path):
         """
-        Subclasses should implement this method to train and test the model
-        on the provided dataset.
+        Runs the train and test script provided in the config.
         """
-        # should be based off of the config's train script and test script
+        # start a subprocess to run the script and wait for it to finish
+        script_path = self.config.model["train_and_test_script"]
+        subprocess.run(["bash", script_path, yaml_config_path], check=True)
 
     def _get_name(self) -> str:
         """

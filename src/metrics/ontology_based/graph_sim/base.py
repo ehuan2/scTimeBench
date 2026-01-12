@@ -15,10 +15,13 @@ class GraphSimMetric(BaseMetric):
         self.output_path_name = OutputPathName.GRAPH_SIM
         self.dataset_filters = [LineageDatasetFilter(self.config)]
 
-    def _eval(self):
+    def _eval(self, output_path, test_data_path):
         """
         The graph similarity metrics we will be using will take in
         """
+        self.graph_pred = None
+        self.graph_ref = None
+
         if self.submetrics:
             for submetric in self.submetrics:
                 submetric_instance = submetric(self.config)
