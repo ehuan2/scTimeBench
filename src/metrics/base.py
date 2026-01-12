@@ -4,7 +4,7 @@ depend on the dataset that they belong to.
 """
 from config import Config
 from typing import final
-from models.base import MODEL_REGISTRY
+from models.base import BaseModel
 from dataset.base import DATASET_REGISTRY
 from database import DatabaseManager
 
@@ -94,10 +94,9 @@ class BaseMetric:
         Initialize the model based on the configuration.
         """
         model_name = self.config.model["name"]
-        if model_name not in MODEL_REGISTRY:
+        if model_name not in self.config.get_available_models():
             raise ValueError(f"Model {model_name} not found in registry.")
-        model_class = MODEL_REGISTRY[model_name]
-        self.model = model_class(self.config)
+        self.model = BaseModel(self.config)
 
     @final
     def _check_model_feature_specs(self):

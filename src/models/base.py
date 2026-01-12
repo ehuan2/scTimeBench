@@ -3,13 +3,7 @@ Model Base Class.
 """
 from typing import final
 from enum import Enum
-
-MODEL_REGISTRY = {}
-
-
-def register_model(cls):
-    """Decorator to register a model class in the MODEL_REGISTRY."""
-    MODEL_REGISTRY[cls.__name__] = cls
+import yaml
 
 
 class FeatureSpec(Enum):
@@ -27,26 +21,31 @@ class BaseModel:
         self.config = config
         self._check_feature_specs()
 
-    def __init_subclass__(cls):
-        """
-        Automatically register subclasses in the MODEL_REGISTRY.
-        """
-        register_model(cls)
-
     @final
     def _check_feature_specs(self):
         """
         Populate the feature specifications required for the metric.
         """
         self.required_feature_specs = None
-        self._populate_feature_specs()
-        assert (
-            self.required_feature_specs is not None
-        ), "Subclasses must define required_feature_specs"
 
-    def _populate_feature_specs(self):
+        # let's use the defined features.yaml to get the features for this model
+        with open(self.config.model_features_path, "r") as f:
+            features_config = yaml.safe_load(f)
+
+        model_name = self.config.model["name"]
+
+        for model in features_config:
+            if model["name"] == model_name:
+                self.required_feature_specs = [
+                    FeatureSpec(feature) for feature in model["features"]
+                ]
+                return
+
+        raise ValueError(f"Model features not defined for model: {model_name}")
+
+    def train_and_test(self, dataset):
         """
-        Subclasses should implement this method to define
-        their required feature specifications.
+        Subclasses should implement this method to train and test the model
+        on the provided dataset.
         """
-        raise NotImplementedError("Subclasses should implement this method.")
+        # should be based off of the config's train script and test script

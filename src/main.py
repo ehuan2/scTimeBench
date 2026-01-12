@@ -15,18 +15,17 @@ if False:
     models  # to avoid unused import warning
 
 from metrics.base import METRIC_REGISTRY
-from models.base import MODEL_REGISTRY
 from dataset.base import DATASET_REGISTRY
 
 import database
 
 
-def print_available():
+def print_available(config: Config):
     """
     Print available models, datasets, and metrics.
     """
     print("Available Models:")
-    for model_name in MODEL_REGISTRY.keys():
+    for model_name in config.get_available_models():
         print(f" - {model_name}")
 
     print("\nAvailable Datasets:")
@@ -59,7 +58,7 @@ if __name__ == "__main__":
     config = Config()
 
     if config.available:
-        print_available()
+        print_available(config)
         exit()
 
     run_metrics(config)

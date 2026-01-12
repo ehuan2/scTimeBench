@@ -1,0 +1,10 @@
+- name: scNODE
+  features:
+    - gene_expression
+    - continuous
+    - trajectory
+- name: ExampleRandomSampler
+  features:
+    - gene_expression
+    - continuous
+    - trajectory

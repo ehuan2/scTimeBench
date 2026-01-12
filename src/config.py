@@ -9,18 +9,6 @@ import argparse
 import os
 import yaml
 
-from enum import Enum
-
-
-class FeatureSpec(Enum):
-    """Enum for different feature specifications of models, and required features for metrics."""
-
-    CONTINUOUS = "continuous"
-    EMBEDDING = "embedding"
-    TRAJECTORY = "trajectory"
-    GENE_EXPRESSION = "gene_expression"
-    GRN_INFERENCE = "grn_inference"
-
 
 class Config:
     """Config class for both yaml and cli arguments."""
@@ -58,6 +46,13 @@ class Config:
             "--database_path",
             type=str,
             help="Path to the SQLite database file for storing results",
+        )
+
+        parser.add_argument(
+            "--model_features_path",
+            type=str,
+            help="Path to the YAML file defining model features",
+            default="model_utils/features.yaml",
         )
 
         # Parse known arguments
@@ -119,7 +114,12 @@ class Config:
             ), f"Required model field '{field}' must be specified in config file"
 
         # Validate paths exist
-        dataset_path_keys = ["data_path", "cell_lineage_file", "cell_equivalence_file"]
+        dataset_path_keys = [
+            "data_path",
+            "cell_lineage_file",
+            "cell_equivalence_file",
+            "model_features_path",
+        ]
         paths = {
             *{value for key, value in self.dataset.items() if key in dataset_path_keys},
         }
@@ -128,3 +128,12 @@ class Config:
             assert os.path.exists(path), f"Path for '{path}' does not exist: {path}"
 
         print(f"Configuration successfully loaded: {self.__dict__}")
+
+    def get_available_models(self):
+        """
+        Return the available models by reading the model features YAML file.
+        """
+        with open(self.model_features_path, "r") as f:
+            features_config = yaml.safe_load(f)
+
+        return [model["name"] for model in features_config]
