@@ -173,23 +173,61 @@ class BaseMetric:
         already cached, and if not, to go through the processing steps.
 
         Steps:
-        1. Calls _populate_dataset_filters to grab the necessary dataset filters.
-        2. Checks if the cache exists based on the dataset filters and dataset.
-        3. Applies each filter to the dataset in sequence.
-        4. Caches the processed dataset for future use.
-        5. Returns the processed dataset path
+        1. Checks if datasets is specified. If not, then read from the default datasets.
+            a. Datasets are not specified: Read from the default datasets path defined in the metric subclass.
+            b. Datasets are specified: Use the datasets provided in the config. If only "tag" is provided,
+                read from the default datasets and find the matching tag.
+
+        Then we do the following to all of the above cases:
+            1. Checks if the datasets are supported by this metric.
+            2. Initializes the dataset filters per dataset based on the config.
+            3. Creates the dataset instances with the appropriate filters applied.
         """
+        # first we create default datasets to be used
+        assert hasattr(
+            self, "default_datasets_path"
+        ), "If datasets are not specified in the config, the metric subclass must define default_datasets_path."
+
+        with open(self.default_datasets_path, "r") as f:
+            default_datasets = yaml.safe_load(f)["datasets"]
+
+        # now we check if datasets are specified in the config
+        if not hasattr(self.config, "datasets") or len(self.config.datasets) == 0:
+            # datasets are not specified, we use the default datasets
+            self.config.datasets = default_datasets
+
+        # then we check if any dataset only has a "tag" specified
+        new_datasets = []
+        for dataset in self.config.datasets:
+            if "tag" in dataset:
+                # we need to find the matching dataset from the default datasets
+                matching_datasets = [
+                    d for d in default_datasets if d.get("tag", None) == dataset["tag"]
+                ]
+                assert (
+                    len(matching_datasets) == 1
+                ), f"Dataset with tag {dataset['tag']} not found or multiple found in default datasets."
+                new_datasets.append(matching_datasets[0])
+            else:
+                new_datasets.append(dataset)
+
+        # finally, we want to remove the tag associated with each dataset
+        # to ensure that the model caches are consistent
+        self.config.datasets = [
+            {k: v for k, v in dataset.items() if k != "tag"} for dataset in new_datasets
+        ]
+
+        print("-" * 50 + "Datasets" + "-" * 50)
+        print(self.config.datasets)
+        print("-" * 100)
+
         # 1) check that all the specified datasets are supported by this metric
         for dataset in self.config.datasets:
             assert (
                 dataset["name"] in self.supported_datasets
             ), f"Dataset {dataset} not supported by this metric."
 
-        # 2) set the defaults to just be the supported datasets instead
-        if self.config.datasets == []:
-            self.config.datasets = self.supported_datasets
-
-        # 3) initialize the dataset and the dataset filters based on the config
+        # 2) initialize the dataset and the dataset filters based on the config
         # for some reason, we need to create a wrapper function here, as lambdas don't work well...
         # searching it up, it's because of late binding
         def dataset_filters_builder_wrapper(dataset_filter):
@@ -216,6 +254,7 @@ class BaseMetric:
             self.config.datasets
         ), "Mismatch in number of datasets and dataset filter builders."
 
+        # 3) finally, with the dataset filters built, we create all the filters that we need
         self.datasets = []
         for dataset, builders in zip(
             self.config.datasets, self.dataset_filters_builders_list
