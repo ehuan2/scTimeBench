@@ -1,24 +1,13 @@
 """
 Model Base Class.
 """
-from enum import Enum
 import json
 import hashlib
 import subprocess
 from shared.dataset.base import BaseDataset
 
 
-class FeatureSpec(Enum):
-    """Enum for different feature specifications of models, and required features for metrics."""
-
-    CONTINUOUS = "continuous"
-    EMBEDDING = "embedding"
-    TRAJECTORY = "trajectory"
-    GENE_EXPRESSION = "gene_expression"
-    GRN_INFERENCE = "grn_inference"
-
-
-class BaseModel:
+class ModelManager:
     def __init__(self, config, dataset: BaseDataset):
         self.config = config
 
@@ -63,7 +52,7 @@ class BaseModel:
             {
                 "name": self._get_name(),
                 "metadata": self._encode_metadata(),
-                "dataset_config": self.config.dataset,
+                "dataset_dict": self.dataset.dataset_dict,
                 "filters": filters,
             },
             sort_keys=True,

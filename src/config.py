@@ -88,7 +88,7 @@ class Config:
         config_keys = list(args.__dict__.keys())
 
         # other keys to add from the yaml file
-        config_keys.extend(["model", "dataset"])
+        config_keys.extend(["model", "datasets"])
 
         # First read the config file if provided
         assert (
@@ -116,6 +116,7 @@ class Config:
             "run_type": RunType.PREPROCESS.value,
             "model_features_path": "model_utils/features.yaml",
             "output_dir": "outputs/",
+            "datasets": [],
         }
 
         for key, value in defaults.items():
@@ -123,7 +124,7 @@ class Config:
                 setattr(self, key, value)
 
         # Validate required fields
-        required_fields = ["dataset", "model", "metrics"]
+        required_fields = ["model", "metrics"]
         for field in required_fields:
             assert (
                 hasattr(self, field) and getattr(self, field) is not None
@@ -132,10 +133,11 @@ class Config:
         dataset_required_fields = ["data_path", "preprocessed_dir", "name"]
         model_required_fields = ["name"]
 
-        for field in dataset_required_fields:
-            assert (
-                field in self.dataset
-            ), f"Required dataset field '{field}' must be specified in config file"
+        for dataset in self.datasets:
+            for field in dataset_required_fields:
+                assert (
+                    field in dataset
+                ), f"Required dataset field '{field}' must be specified in config file"
 
         for field in model_required_fields:
             assert (
@@ -153,7 +155,12 @@ class Config:
             "train_and_test_script",
         ]
         paths = {
-            *{value for key, value in self.dataset.items() if key in dataset_path_keys},
+            *{
+                value
+                for dataset in self.datasets
+                for key, value in dataset.items()
+                if key in dataset_path_keys
+            },
             *{value for key, value in self.model.items() if key in model_path_keys},
         }
 

@@ -1,8 +1,8 @@
 """
 Graph Similarity Metric Base Class
 """
-from metrics.base import BaseMetric, OutputPathName
-from models.base import FeatureSpec
+from metrics.base import BaseMetric, OutputPathName, FeatureSpec
+from shared.dataset.registry import SuoDataset, GarciaAlonsoDataset
 from shared.dataset.filters.lineage import LineageDatasetFilter
 from shared.dataset.filters.naive_split import NaiveSplitDatasetFilter
 
@@ -11,12 +11,19 @@ class GraphSimMetric(BaseMetric):
     def __init__(self, config, db_manager):
         super().__init__(config, db_manager)
 
-        # ** NOTE: must define the following two attributes **
+        # ** NOTE: must define the following three attributes **
+        # ** Particularly, we require a filter builder which is a set of functions **
+        # ** that take in a dataset_dict and return a dataset filter instance. **
         self.required_feature_specs = [FeatureSpec.TRAJECTORY]
         self.output_path_name = OutputPathName.GRAPH_SIM
-        self.dataset_filters = [
-            LineageDatasetFilter(self.config),
-            NaiveSplitDatasetFilter(self.config, 0.8),
+        self.dataset_filters_builders = [
+            lambda dataset_dict: LineageDatasetFilter(dataset_dict),
+            lambda dataset_dict: NaiveSplitDatasetFilter(dataset_dict, 0.8),
+        ]
+        # this needs to be the name of the class
+        self.supported_datasets = [
+            SuoDataset.__name__,
+            GarciaAlonsoDataset.__name__,
         ]
 
     def _eval(self, output_path):

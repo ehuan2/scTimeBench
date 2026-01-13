@@ -9,8 +9,5 @@ class ObservationColumns(Enum):
     TIMEPOINT = "timepoint"
 
 
-class RequiredGeneExpressionColumns(Enum):
-    EXPRESSION = "expression"
-    # so we can map back to original cells after processing
-    # in case the model changes the order of cells
-    CELL_ID = "cell_id"
+# TODO: add in required constraints for what the model outputs
+# TODO: should look like per metric

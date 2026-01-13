@@ -12,8 +12,8 @@ class LineageDatasetFilter(BaseDatasetFilter):
         Return filter-specific parameters.
         """
         return {
-            "cell_lineage_file": self.config.dataset.get("cell_lineage_file", None),
-            "cell_equivalence_file": self.config.dataset.get(
+            "cell_lineage_file": self.dataset_dict.get("cell_lineage_file", None),
+            "cell_equivalence_file": self.dataset_dict.get(
                 "cell_equivalence_file", None
             ),
         }
@@ -25,13 +25,13 @@ class LineageDatasetFilter(BaseDatasetFilter):
 
         # based off the config, we should filter our dataset
         # for only the cells that are in the lineage information
-        lineage_file = self.config.dataset.get("cell_lineage_file", None)
+        lineage_file = self.dataset_dict.get("cell_lineage_file", None)
         if lineage_file is None:
             raise ValueError(
                 "Cell lineage file must be specified in the config for LineageDatasetFilter."
             )
 
-        equivalence_file = self.config.dataset.get("cell_equivalence_file", None)
+        equivalence_file = self.dataset_dict.get("cell_equivalence_file", None)
 
         lineage_dict = self._parse_cell_lineage(lineage_file, equivalence_file)
 

@@ -4,7 +4,7 @@ depend on the dataset that they belong to.
 """
 from config import Config, RunType
 from typing import final
-from models.base import BaseModel
+from metrics.model_manager import ModelManager
 from shared.dataset.base import DATASET_REGISTRY
 from database import DatabaseManager
 from enum import Enum
@@ -12,6 +12,17 @@ from enum import Enum
 import os
 import pickle
 import yaml
+
+
+# feature specifications that the metrics can require from models
+class FeatureSpec(Enum):
+    """Enum for different feature specifications of models, and required features for metrics."""
+
+    CONTINUOUS = "continuous"
+    EMBEDDING = "embedding"
+    TRAJECTORY = "trajectory"
+    GENE_EXPRESSION = "gene_expression"
+    GRN_INFERENCE = "grn_inference"
 
 
 class OutputPathName(Enum):
@@ -58,22 +69,19 @@ class BaseMetric:
         """
         raise NotImplementedError("Subclasses should implement this method.")
 
-    def _preprocess(self):
+    def _preprocess(self, dataset):
         """
         Preprocessing steps required before evaluating the metric.
         """
-        # first we check that the subclasses have defined the required feature specs
+        # 1) we check that the subclasses have defined the required feature specs
         assert (
             hasattr(self, "output_path_name")
             and type(self.output_path_name) is OutputPathName
         ), "Subclasses must define output_path_name of type OutputPathName"
 
-        # 1) initialize the dataset splits dependent on the metric and initialize the model
-        # with the dataset as its parameter
-        self._init_dataset()
-        self._init_model()
+        self.model = ModelManager(self.config, dataset)
 
-        # now we check if the database already has this model output cached
+        # 2) we check if the database already has this model output cached
         cached_output_path = self.db_manager.get_model_output_path(self.model)
         if cached_output_path is not None:
             assert os.path.exists(
@@ -82,7 +90,7 @@ class BaseMetric:
             print("Model output cache found. Loading from cache.")
             return cached_output_path
 
-        # 2) create the output directory for this model that is parametrized by
+        # 3) create the output directory for this model that is parametrized by
         # this dataset. So that if we run the same model on the same dataset
         # with the same filters, we will get the same output directory
         # Each output directory can contain multiple files required by different metrics
@@ -99,7 +107,7 @@ class BaseMetric:
         # so that the model can load this dataset object directly for training and testing
         pickled_dataset_path = os.path.join(output_path, self.PICKLED_DATASET_FILENAME)
         with open(pickled_dataset_path, "wb") as f:
-            pickle.dump(self.dataset, f)
+            pickle.dump(dataset, f)
 
         yaml_config = {
             "output_path": output_path,
@@ -126,58 +134,40 @@ class BaseMetric:
         2) train the model on the preprocess dataset and test it
         3) evaluate the metric
         """
-        # always have to preprocess - self.dataset is required for eval
-        output_path = self._preprocess()
+        # always have to preprocess - self.datasets is required for eval
 
-        if self.config.run_type == RunType.PREPROCESS:
-            print(
-                "Run type is PREPROCESS. Skipping model training and metric evaluation."
-            )
-            print(f"Output path for model: {output_path}")
-        elif self.config.run_type == RunType.AUTO_TRAIN_TEST:
-            self.model.train_and_test(
-                os.path.join(output_path, self.MODEL_CONFIG_FILENAME)
-            )
+        # 1) initialize the dataset splits dependent on the metric and initialize the model
+        # with the dataset as its parameter
+        self._init_datasets()
 
-        if self.config.run_type in [RunType.EVAL_ONLY, RunType.AUTO_TRAIN_TEST]:
-            # verify that there is the model output where expected
-            assert os.path.exists(
-                os.path.join(output_path, self.output_path_name.value)
-            ), f"Model output file not found: {os.path.join(output_path, self.output_path_name.value)}"
-
-            # finally, we evaluate on the test data (ground truth)
-            # and the predicted data from the model
-            # TODO: change this so that it's the test data that's loaded instead
-            self._eval(output_path)
-
-    # ** METRIC FEATURE SPECS SECTION **
-    @final
-    def _init_model(self):
-        """
-        Initialize the model based on the configuration.
-        """
-        model_name = self.config.model["name"]
-        if model_name not in self.config.get_available_models():
-            raise ValueError(f"Model {model_name} not found in registry.")
-
-        self.model = BaseModel(self.config, self.dataset)
-
-        # Check if the model's feature specifications satisfy the metric's requirements.
-        model_feature_specs = self.model.required_feature_specs
-        required_specs = self.required_feature_specs
-        assert (
-            self.required_feature_specs is not None
-        ), "Subclasses must define required_feature_specs"
-
-        for spec in required_specs:
-            if spec not in model_feature_specs:
-                raise ValueError(
-                    f"Model {self.config.model['name']} does not satisfy the required feature spec: {spec}"
+        # 2) for each dataset, we preprocess the output model directory and dataset,
+        # train/test, and evaluate
+        for dataset in self.datasets:
+            output_path = self._preprocess(dataset)
+            if self.config.run_type == RunType.PREPROCESS:
+                print(
+                    "Run type is PREPROCESS. Skipping model training and metric evaluation."
                 )
+                print(f"Output path for model: {output_path}")
+            elif self.config.run_type == RunType.AUTO_TRAIN_TEST:
+                self.model.train_and_test(
+                    os.path.join(output_path, self.MODEL_CONFIG_FILENAME)
+                )
+
+            if self.config.run_type in [RunType.EVAL_ONLY, RunType.AUTO_TRAIN_TEST]:
+                # verify that there is the model output where expected
+                assert os.path.exists(
+                    os.path.join(output_path, self.output_path_name.value)
+                ), f"Model output file not found: {os.path.join(output_path, self.output_path_name.value)}"
+
+                # finally, we evaluate on the test data (ground truth)
+                # and the predicted data from the model
+                # TODO: change this so that it's the test data that's loaded instead
+                self._eval(output_path)
 
     # ** PREPROCESSING DATASET SECTION **
     @final
-    def _init_dataset(self):
+    def _init_datasets(self):
         """
         Initializes the dataset by first checking if the processed dataset is
         already cached, and if not, to go through the processing steps.
@@ -189,12 +179,20 @@ class BaseMetric:
         4. Caches the processed dataset for future use.
         5. Returns the processed dataset path
         """
-        # make sure that the dataset filters are populated
-        assert (
-            self.dataset_filters is not None
-        ), "Subclasses must define dataset_filters"
+        # 1) check that all the specified datasets are supported by this metric
+        for dataset in self.config.datasets:
+            assert (
+                dataset["name"] in self.supported_datasets
+            ), f"Dataset {dataset} not supported by this metric."
 
-        # 1) initialize the dataset and the dataset filters based on the metric
-        self.dataset = DATASET_REGISTRY[self.config.dataset["name"]](
-            self.config, self.dataset_filters
-        )
+        # 2) set the defaults to just be the supported datasets instead
+        if self.config.datasets == []:
+            self.config.datasets = self.supported_datasets
+
+        # 3) initialize the dataset and the dataset filters based on the metric
+        self.datasets = [
+            DATASET_REGISTRY[dataset["name"]](
+                dataset, [builder(dataset) for builder in self.dataset_filters_builders]
+            )
+            for dataset in self.config.datasets
+        ]
