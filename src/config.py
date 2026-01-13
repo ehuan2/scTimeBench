@@ -130,14 +130,32 @@ class Config:
                 hasattr(self, field) and getattr(self, field) is not None
             ), f"Required field '{field}' must be specified in config file or as --{field}"
 
-        dataset_required_fields = ["data_path", "preprocessed_dir", "name"]
+        dataset_required_fields = ["data_path", "name", "filters"]
+        dataset_alternate_field = "tag"
         model_required_fields = ["name"]
 
         for dataset in self.datasets:
+            # we want to make sure either all of the required fields are specified,
+            # or the alternate field is specified, but not a mix of both
+            if dataset_alternate_field in dataset:
+                if any([field in dataset for field in dataset_required_fields]):
+                    raise ValueError(
+                        f"Dataset config cannot have both '{dataset_alternate_field}' and any other fields {dataset_required_fields}."
+                    )
+                continue
+
             for field in dataset_required_fields:
                 assert (
                     field in dataset
-                ), f"Required dataset field '{field}' must be specified in config file"
+                ), f"Required dataset field '{field}' must be specified in config file."
+
+            # also ensure that all the fields found in the dataset are only of the required fields
+            # this is to ensure caching also works properly
+            for field in dataset.keys():
+                if field not in dataset_required_fields:
+                    raise ValueError(
+                        f"Unknown field '{field}' found in dataset config. Allowed fields are {dataset_required_fields} or '{dataset_alternate_field}'."
+                    )
 
         for field in model_required_fields:
             assert (

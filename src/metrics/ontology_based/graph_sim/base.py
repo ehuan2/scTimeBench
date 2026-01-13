@@ -1,24 +1,17 @@
 """
 Graph Similarity Metric Base Class
 """
-from metrics.base import BaseMetric, OutputPathName, FeatureSpec
-from shared.dataset.registry import SuoDataset, GarciaAlonsoDataset
+from metrics.base import OutputPathName, FeatureSpec
+from metrics.ontology_based.base import OntologyBasedMetrics
 
 
-class GraphSimMetric(BaseMetric):
+class GraphSimMetric(OntologyBasedMetrics):
     def __init__(self, config, db_manager):
         super().__init__(config, db_manager)
 
-        # ** NOTE: must define the following three attributes **
-        # ** Particularly, we require a filter builder which is a set of functions **
-        # ** that take in a dataset_dict and return a dataset filter instance. **
+        # ** NOTE: must define the following two attributes **
         self.required_feature_specs = [FeatureSpec.TRAJECTORY]
         self.output_path_name = OutputPathName.GRAPH_SIM
-        # this needs to be the name of the class
-        self.supported_datasets = [
-            SuoDataset.__name__,
-            GarciaAlonsoDataset.__name__,
-        ]
 
     def _eval(self, output_path):
         """
