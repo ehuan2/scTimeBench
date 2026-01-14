@@ -9,6 +9,7 @@ from shared.dataset.base import DATASET_REGISTRY, DATASET_FILTER_REGISTRY
 from shared.constants import RequiredOutputColumns
 from database import DatabaseManager
 from enum import Enum
+from trajectory_infer.base import TrajectoryInferenceMethodFactory
 
 import os
 import pickle
@@ -42,11 +43,19 @@ def register_metric(cls):
 
 # also store a registry of metrics of name to class
 class BaseMetric:
-    def __init__(self, config: Config, db_manager: DatabaseManager):
+    def __init__(
+        self, config: Config, db_manager: DatabaseManager, metric_config: dict
+    ):
         self.db_manager = db_manager
         self.config = config
+        self.metric_config = metric_config
         self.MODEL_CONFIG_FILENAME = "model_config.yaml"
         self.PICKLED_DATASET_FILENAME = "dataset.pkl"
+        self.trajectory_infer_model = (
+            TrajectoryInferenceMethodFactory().get_trajectory_infer_method(
+                self.metric_config.get("trajectory_infer_model", {})
+            )
+        )
 
     def __init_subclass__(cls):
         """

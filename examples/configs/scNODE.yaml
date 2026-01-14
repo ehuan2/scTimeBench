@@ -6,4 +6,8 @@ model:
   train_and_test_script: ./models/scNODE/train_and_test.sh
 
 metrics:
- - L1Norm
+ - name: L1Norm
+   trajectory_infer_model:
+    name: kNN
+    n_neighbors: 5
+ - name: GraphEditDistance

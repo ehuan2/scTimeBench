@@ -8,8 +8,8 @@ import os
 
 
 class OntologyBasedMetrics(BaseMetric):
-    def __init__(self, config, db_manager):
-        super().__init__(config, db_manager)
+    def __init__(self, config, db_manager, metric_config):
+        super().__init__(config, db_manager, metric_config)
 
         # ** NOTE: must define the following two attributes, though each subclass **
         # ** Must also define required_feature_specs and output_path_name individually, as they likely require **

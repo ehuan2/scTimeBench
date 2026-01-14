@@ -47,11 +47,14 @@ def run_metrics(config: Config):
     # initialize the database connection
     db_manager = database.DatabaseManager(config)
 
-    for metric_name in config.metrics:
+    for metric in config.metrics:
+        metric_name = metric["name"]
         if metric_name not in METRIC_REGISTRY:
             raise ValueError(f"Metric {metric_name} not found in registry.")
         metric_class = METRIC_REGISTRY[metric_name]
-        metric_instance = metric_class(config=config, db_manager=db_manager)
+        metric_instance = metric_class(
+            config=config, db_manager=db_manager, metric_config=metric
+        )
         metric_instance.eval()
 
     db_manager.close()

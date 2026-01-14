@@ -3,20 +3,19 @@ Graph Similarity Metric Base Class
 """
 from metrics.base import OutputPathName
 from metrics.ontology_based.base import OntologyBasedMetrics
-from shared.constants import ObservationColumns, RequiredOutputColumns
+from shared.constants import RequiredOutputColumns
 from shared.helpers import parse_cell_lineage
 from shared.dataset.filters.lineage import LineageDatasetFilter
 
 import numpy as np
-import scanpy as sc
 
 import os
 import logging
 
 
 class GraphSimMetric(OntologyBasedMetrics):
-    def __init__(self, config, db_manager):
-        super().__init__(config, db_manager)
+    def __init__(self, config, db_manager, metric_config):
+        super().__init__(config, db_manager, metric_config)
 
         # ** NOTE: must define the following attributes **
         # where we define the output embedding name
@@ -84,35 +83,9 @@ class GraphSimMetric(OntologyBasedMetrics):
         # we expect it to have the true embeddings and predicted embeddings
         # for timepoints (1, ..., n) in h5ad format, where we save new embeddings
         model_output_file = os.path.join(output_path, self.output_path_name.value)
-        ann_data = sc.read_h5ad(model_output_file)
-
-        required_obs_columns = [
-            ObservationColumns.CELL_TYPE.value,
-            ObservationColumns.TIMEPOINT.value,
-        ]
-
-        required_obsm_columns = [
-            RequiredOutputColumns.EMBEDDING.value,
-            RequiredOutputColumns.NEXT_TIMEPOINT_EMBEDDING.value,
-        ]
-
-        for col in required_obs_columns:
-            if col not in ann_data.obs.columns:
-                raise ValueError(
-                    f"Predicted graph data must have '{col}' in observation metadata."
-                )
-        for col in required_obsm_columns:
-            if col not in ann_data.obsm.keys():
-                raise ValueError(
-                    f"Predicted graph data must have '{col}' in observation embeddings."
-                )
-
-        # now that we know the required columns exist, let's build the adjacency matrix
-        timepoints = sorted(ann_data.obs[ObservationColumns.TIMEPOINT.value].unique())
-        cell_types = ann_data.obs[ObservationColumns.CELL_TYPE.value].unique()
-
-        # TODO: finish this later!
-        self.graph_pred = None
+        self.graph_pred = self.trajectory_infer_model.infer_trajectory(
+            model_output_file
+        )
 
     def _eval(self, output_path, dataset):
         """
