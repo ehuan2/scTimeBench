@@ -12,6 +12,13 @@ import numpy as np
 import os
 import logging
 
+DEFAULT_EDGE_THRESHOLD = 0.1
+
+
+class AdjacencyMatrixType:
+    UNWEIGHTED = "adjacency_matrix"
+    WEIGHTED = "weighted_adjacency_matrix"
+
 
 class GraphSimMetric(OntologyBasedMetrics):
     def __init__(self, config, db_manager, metric_config):
@@ -25,6 +32,10 @@ class GraphSimMetric(OntologyBasedMetrics):
             RequiredOutputColumns.EMBEDDING,
             RequiredOutputColumns.NEXT_TIMEPOINT_EMBEDDING,
         ]
+
+        self.edge_threshold = metric_config.get(
+            "edge_threshold", DEFAULT_EDGE_THRESHOLD
+        )
 
     def _build_ref_graph(self, dataset):
         """
@@ -69,10 +80,8 @@ class GraphSimMetric(OntologyBasedMetrics):
                 target_id = cell_type_to_id[target]
                 adjacency_matrix[source_id, target_id] = 1.0
 
-        self.graph_ref = {
-            "adjacency_matrix": adjacency_matrix,
-            "cell_type_to_id": cell_type_to_id,
-        }
+        self.graph_ref = adjacency_matrix
+        self.cell_type_to_id = cell_type_to_id
         logging.debug(f"Reference graph adjacency matrix:\n{adjacency_matrix}")
 
     def _build_pred_graph(self, output_path):
@@ -83,9 +92,34 @@ class GraphSimMetric(OntologyBasedMetrics):
         # we expect it to have the true embeddings and predicted embeddings
         # for timepoints (1, ..., n) in h5ad format, where we save new embeddings
         model_output_file = os.path.join(output_path, self.output_path_name.value)
-        self.graph_pred = self.trajectory_infer_model.infer_trajectory(
+        pred_trajectory = self.trajectory_infer_model.infer_trajectory(
             model_output_file
         )
+
+        # based on the predicted trajectory, we can build the adjacency matrix
+        # let's use the config's threshold for an edge to be created
+        num_cell_types = len(self.cell_type_to_id)
+        weighted_adjacency_matrix = np.zeros(
+            (num_cell_types, num_cell_types), dtype=np.float32
+        )
+        adjacency_matrix = np.zeros((num_cell_types, num_cell_types), dtype=np.float32)
+
+        # now we can iterate over the predicted trajectory to fill in the adjacency matrix
+        for source_cell_type, target_distribution in pred_trajectory.items():
+            source_id = self.cell_type_to_id[source_cell_type]
+
+            for target_cell_type, prob in target_distribution.items():
+                target_id = self.cell_type_to_id[target_cell_type]
+                weighted_adjacency_matrix[source_id, target_id] = prob
+
+                # avoid self-loops and any edges below the threshold
+                if source_id != target_id and prob >= self.edge_threshold:
+                    adjacency_matrix[source_id, target_id] = 1.0
+
+        self.graph_pred = {
+            AdjacencyMatrixType.WEIGHTED: weighted_adjacency_matrix,
+            AdjacencyMatrixType.UNWEIGHTED: adjacency_matrix,
+        }
 
     def _eval(self, output_path, dataset):
         """
