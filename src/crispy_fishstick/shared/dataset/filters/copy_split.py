@@ -1,4 +1,4 @@
-from shared.dataset.base import BaseDatasetFilter
+from crispy_fishstick.shared.dataset.base import BaseDatasetFilter
 
 
 class CopySplitFilter(BaseDatasetFilter):

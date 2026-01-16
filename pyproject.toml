@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crispy_fishstick"  # This is the name you use for 'pip install'
+version = "0.1"
+dependencies = [
+    "networkx",
+    "numpy",
+    "PyYAML",
+    "scanpy",
+    "scikit_learn"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]  # Tells Python: "The actual code lives inside the src folder"
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+dev = [
+    "pre-commit",
+]

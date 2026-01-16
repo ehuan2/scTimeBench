@@ -1,11 +1,11 @@
 """
 Graph Similarity Metric Base Class
 """
-from metrics.base import OutputPathName
-from metrics.ontology_based.base import OntologyBasedMetrics
-from shared.constants import RequiredOutputColumns
-from shared.helpers import parse_cell_lineage
-from shared.dataset.filters.lineage import LineageDatasetFilter
+from crispy_fishstick.metrics.base import OutputPathName
+from crispy_fishstick.metrics.ontology_based.base import OntologyBasedMetrics
+from crispy_fishstick.shared.constants import RequiredOutputColumns
+from crispy_fishstick.shared.helpers import parse_cell_lineage
+from crispy_fishstick.shared.dataset.filters.lineage import LineageDatasetFilter
 
 import numpy as np
 

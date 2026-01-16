@@ -5,7 +5,7 @@ import json
 import hashlib
 import subprocess
 import logging
-from shared.dataset.base import BaseDataset
+from crispy_fishstick.shared.dataset.base import BaseDataset
 
 
 class ModelManager:

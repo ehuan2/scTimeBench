@@ -6,7 +6,7 @@ and its timepoints, we want to infer the trajectory structure.
 
 Examples are the kNN graph-based methods, or the optimal transport based methods.
 """
-from shared.constants import ObservationColumns, RequiredOutputColumns
+from crispy_fishstick.shared.constants import ObservationColumns, RequiredOutputColumns
 from typing import final
 import scanpy as sc
 

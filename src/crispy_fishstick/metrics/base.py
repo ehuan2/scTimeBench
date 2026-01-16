@@ -2,14 +2,19 @@
 Base class for all metrics. They should all implement the eval method, and
 depend on the dataset that they belong to.
 """
-from config import Config, RunType
+
 from typing import final
-from metrics.model_manager import ModelManager
-from shared.dataset.base import DATASET_REGISTRY, DATASET_FILTER_REGISTRY
-from shared.constants import RequiredOutputColumns
-from database import DatabaseManager
 from enum import Enum
-from trajectory_infer.base import TrajectoryInferenceMethodFactory
+
+from crispy_fishstick.config import Config, RunType
+from crispy_fishstick.metrics.model_manager import ModelManager
+from crispy_fishstick.shared.dataset.base import (
+    DATASET_REGISTRY,
+    DATASET_FILTER_REGISTRY,
+)
+from crispy_fishstick.shared.constants import RequiredOutputColumns
+from crispy_fishstick.database import DatabaseManager
+from crispy_fishstick.trajectory_infer.base import TrajectoryInferenceMethodFactory
 
 import os
 import pickle

@@ -1,4 +1,4 @@
-from metrics.ontology_based.graph_sim.base import GraphSimMetric
+from crispy_fishstick.metrics.ontology_based.graph_sim.base import GraphSimMetric
 
 
 class L1Norm(GraphSimMetric):

@@ -2,9 +2,9 @@
 Filter based on only the cells existing in the lineage information.
 """
 
-from shared.dataset.base import BaseDatasetFilter
-from shared.constants import ObservationColumns
-from shared.helpers import parse_cell_lineage
+from crispy_fishstick.shared.dataset.base import BaseDatasetFilter
+from crispy_fishstick.shared.constants import ObservationColumns
+from crispy_fishstick.shared.helpers import parse_cell_lineage
 
 
 class LineageDatasetFilter(BaseDatasetFilter):

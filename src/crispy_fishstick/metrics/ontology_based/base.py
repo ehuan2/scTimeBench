@@ -1,8 +1,8 @@
 """
 Ontology-Based Metrics.
 """
-from metrics.base import BaseMetric
-from shared.dataset.registry import SuoDataset, GarciaAlonsoDataset
+from crispy_fishstick.metrics.base import BaseMetric
+from crispy_fishstick.shared.dataset.registry import SuoDataset, GarciaAlonsoDataset
 
 import os
 

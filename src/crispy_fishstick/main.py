@@ -2,29 +2,24 @@
 main.py. Entrypoint for measuring trajectories in single-cell data,
 particularly involving gene regulatory networks and cell lineage information.
 """
-# first let's add the model utils path
-import sys
-import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../"))
-
-from config import Config
+from crispy_fishstick.config import Config
 
 # required to register metrics
-import metrics
-import shared.dataset
+import crispy_fishstick.metrics
+import crispy_fishstick.shared.dataset
 
 if False:
-    metrics  # to avoid unused import warning
-    shared.dataset  # to avoid unused import warning
+    crispy_fishstick.metrics  # to avoid unused import warning
+    crispy_fishstick.shared.dataset  # to avoid unused import warning
 
-from metrics.base import METRIC_REGISTRY, BaseMetric
-from metrics.model_manager import ModelManager
-from shared.dataset.base import DATASET_REGISTRY
+from crispy_fishstick.metrics.base import METRIC_REGISTRY, BaseMetric
+from crispy_fishstick.metrics.model_manager import ModelManager
+from crispy_fishstick.shared.dataset.base import DATASET_REGISTRY
 
 from pprint import pprint
 
-import database
+import crispy_fishstick.database as database
 
 
 def print_available(config: Config):

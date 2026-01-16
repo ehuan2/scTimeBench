@@ -1,9 +1,9 @@
 """
 kNN implementation for trajectory inference.
 """
-from trajectory_infer.base import BaseTrajectoryInferMethod
+from crispy_fishstick.trajectory_infer.base import BaseTrajectoryInferMethod
 from sklearn.neighbors import NearestNeighbors
-from shared.constants import ObservationColumns, RequiredOutputColumns
+from crispy_fishstick.shared.constants import ObservationColumns, RequiredOutputColumns
 import numpy as np
 import json
 

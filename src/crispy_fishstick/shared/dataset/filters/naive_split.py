@@ -1,5 +1,5 @@
-from shared.dataset.base import BaseDatasetFilter
-from shared.constants import ObservationColumns
+from crispy_fishstick.shared.dataset.base import BaseDatasetFilter
+from crispy_fishstick.shared.constants import ObservationColumns
 import random
 
 

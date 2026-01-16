@@ -10,9 +10,9 @@ including the setup of tables for storing:
 """
 
 import sqlite3
-from config import Config
+from crispy_fishstick.config import Config
 
-from metrics.model_manager import ModelManager
+from crispy_fishstick.metrics.model_manager import ModelManager
 import json
 
 

@@ -1,4 +1,7 @@
-from metrics.ontology_based.graph_sim.base import GraphSimMetric, AdjacencyMatrixType
+from crispy_fishstick.metrics.ontology_based.graph_sim.base import (
+    GraphSimMetric,
+    AdjacencyMatrixType,
+)
 
 import networkx as nx
 

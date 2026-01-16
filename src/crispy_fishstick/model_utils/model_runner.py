@@ -1,12 +1,15 @@
+"""
+Note: for this file only, this will be used by other models as a base class
+And so its context is outside the src/ folder, so we need to use crispy_fishstick.*
+imports instead of relative imports.
+"""
+
 import argparse
 import os
 import pickle
-import sys
 import yaml
-from shared.constants import RequiredOutputColumns
 
-# ** The following is needed for src/config imports!**
-sys.path.append(os.path.join(os.path.dirname(__file__), "../src"))
+from crispy_fishstick.shared.constants import RequiredOutputColumns
 
 
 def get_parser():

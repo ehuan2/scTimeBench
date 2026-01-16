@@ -9,11 +9,10 @@ Where we simply memorize a random sample from each time point.
 import sys
 import os
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 sys.path.append(os.path.join(os.path.dirname(__file__), "./scNODE_module"))
 
-from model_utils.parser import main, BaseModel
-from shared.constants import ObservationColumns, RequiredOutputColumns
+from crispy_fishstick.model_utils.model_runner import main, BaseModel
+from crispy_fishstick.shared.constants import ObservationColumns, RequiredOutputColumns
 import numpy as np
 import torch
 from optim.running import constructscNODEModel, scNODETrainWithPreTrain
