@@ -74,7 +74,7 @@ def model_training(
     metadata,
 ):
     # Model training
-    pretrain_iters = 200
+    pretrain_iters = metadata.get("pretrain_iters", 200)
     pretrain_lr = 1e-3
     epochs = metadata.get("epochs", 10)
     iters = 100

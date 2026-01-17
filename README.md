@@ -30,3 +30,15 @@ If you want to contribute, please install both the test and the dev environments
 ```
 pip install -e ".[test, dev]"
 ```
+
+## Testing
+To run a test simply run:
+```
+pytest test
+```
+under the root directory or move to `test` and run:
+```
+pytest
+```
+
+See more information on the pytest documentation: https://docs.pytest.org/en/stable/. A useful flag is `-s` to view the entire output of the test.

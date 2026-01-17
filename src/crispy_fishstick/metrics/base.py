@@ -83,8 +83,12 @@ class BaseMetric:
             )
 
         # initialize the dataset splits dependent on the metric and initialize the model
-        # with the dataset as its parameter
+        # with the dataset as its parameter, also create its preprocessing output path
         self._init_datasets()
+        self.models = []
+        for dataset in self.datasets:
+            output_path = self._preprocess(dataset)
+            logging.info(f"Output path for model: {output_path}")
 
     def _setup_supported_datasets(self):
         raise NotImplementedError("Subclasses should implement this method.")
@@ -115,7 +119,7 @@ class BaseMetric:
                 base.submetrics.append(cls)
 
     # ** METRIC EVALUATION SECTION, main function to be called (no others should be called) **
-    def _eval(self, output_path):
+    def _eval(self, output_path, dataset, model):
         """
         Subclasses should implement this method to evaluate the metric.
         """
@@ -131,7 +135,8 @@ class BaseMetric:
             and type(self.output_path_name) is OutputPathName
         ), "Subclasses must define output_path_name of type OutputPathName"
 
-        self.model = ModelManager(self.config, dataset)
+        model = ModelManager(self.config, dataset)
+        self.models.append(model)
 
         # ** NOTE **
         # because it doesn't cost much (as it did before with the dataset preprocessing)
@@ -145,9 +150,7 @@ class BaseMetric:
         # (e.g., embedding.pkl, graph_sim.pkl, etc.)
         # we will first insert a yaml config file that the model can use to
         # train and test on this dataset
-        hash_output_dir = self.model._encode_output_path()
-        output_path = os.path.join(self.config.output_dir, hash_output_dir)
-
+        output_path = os.path.join(self.config.output_dir, model._encode_output_path())
         os.makedirs(output_path, exist_ok=True)
 
         # to make our lives easier, we will also pickle our current dataset object
@@ -179,8 +182,8 @@ class BaseMetric:
             yaml.safe_dump(yaml_config, f)
 
         # now let's save this hash output dir to the database as well, only if it doesn't exist
-        if self.db_manager.get_model_output_path(self.model) is None:
-            self.db_manager.insert_model_output(self.model, output_path)
+        if self.db_manager.get_model_output_path(model) is None:
+            self.db_manager.insert_model_output(model, output_path)
 
         return output_path
 
@@ -194,22 +197,26 @@ class BaseMetric:
         2) train the model on the preprocess dataset and test it
         3) evaluate the metric
         """
-        # always have to preprocess - self.datasets is required for eval
-        # 1) for each dataset, we preprocess the output model directory and dataset,
-        # train/test, and evaluate
-        for dataset in self.datasets:
-            output_path = self._preprocess(dataset)
+        # assert that the preprocessing was done correctly
+        # we assume that each model corresponds to a dataset
+        assert len(self.models) == len(
+            self.datasets
+        ), "Number of models and datasets must be the same."
+
+        for model, dataset in zip(self.models, self.datasets):
+            # this preprocessing step already happens during creation, skip this here!
+            output_path = self.db_manager.get_model_output_path(model)
+
             if self.config.run_type == RunType.PREPROCESS:
                 logging.debug(
                     "Run type is PREPROCESS. Skipping model training and metric evaluation."
                 )
-                logging.info(f"Output path for model: {output_path}")
             elif self.config.run_type == RunType.AUTO_TRAIN_TEST:
                 # only run this if the model output doesn't already exist
                 if not os.path.exists(
                     os.path.join(output_path, self.output_path_name.value)
                 ):
-                    self.model.train_and_test(
+                    model.train_and_test(
                         os.path.join(output_path, self.MODEL_CONFIG_FILENAME)
                     )
                 else:
@@ -225,7 +232,7 @@ class BaseMetric:
 
                 # finally, we evaluate on the test data (ground truth)
                 # and the predicted data from the model
-                self._eval(output_path, dataset)
+                self._eval(output_path, dataset, model)
 
     # ** PREPROCESSING DATASET SECTION **
     @final

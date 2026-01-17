@@ -112,6 +112,18 @@ class DatabaseManager:
                 print(row)
         self.conn.commit()
 
+    def return_all(self):
+        cursor = self.conn.cursor()
+        outputs = ""
+        for table in self.table_names:
+            outputs += f"Contents of table: {table}\n"
+            cursor.execute(f"SELECT * FROM {table}")
+            rows = cursor.fetchall()
+            for row in rows:
+                outputs += f"{row}\n"
+        self.conn.commit()
+        return outputs
+
     # ** METRIC RELATED FUNCTIONS **
     def has_metric(self, name: str, parameters: str) -> bool:
         cursor = self.conn.cursor()

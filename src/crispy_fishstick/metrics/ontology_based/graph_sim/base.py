@@ -120,7 +120,7 @@ class GraphSimMetric(OntologyBasedMetrics):
             AdjacencyMatrixType.UNWEIGHTED: adjacency_matrix,
         }
 
-    def _eval(self, output_path, dataset):
+    def _eval(self, output_path, dataset, model):
         """
         The graph similarity metrics we will be using will take in
         """
@@ -133,20 +133,20 @@ class GraphSimMetric(OntologyBasedMetrics):
 
         if self.submetrics:
             for submetric in self.submetrics:
-                submetric_instance = submetric(self.config)
+                submetric_instance = submetric(self.config, self.db_manager, {})
                 submetric_instance._graph_sim_eval_wrapper(
-                    self.graph_pred, self.graph_ref
+                    self.graph_pred, self.graph_ref, model
                 )
         else:
-            self._graph_sim_eval_wrapper(self.graph_pred, self.graph_ref)
+            self._graph_sim_eval_wrapper(self.graph_pred, self.graph_ref, model)
 
-    def _graph_sim_eval_wrapper(self, graph_pred, graph_ref):
+    def _graph_sim_eval_wrapper(self, graph_pred, graph_ref, model):
         """
         Wrapper function to call the graph similarity evaluation, and handle database
         logging.
         """
         self.db_manager.insert_eval(
-            self.model,
+            model,
             self.__class__.__name__,
             self._get_param_encoding(),
             self._graph_sim_eval(graph_pred, graph_ref),
