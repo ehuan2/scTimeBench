@@ -12,7 +12,8 @@ class GraphEditDistance(GraphSimMetric):
         The graph similarity metrics we will be using will take in
         """
         graph_pred_unweighted = graph_pred[AdjacencyMatrixType.UNWEIGHTED]
+        graph_ref_adj = graph_ref[AdjacencyMatrixType.UNWEIGHTED]
         return nx.graph_edit_distance(
             nx.from_numpy_array(graph_pred_unweighted),
-            nx.from_numpy_array(graph_ref),
+            nx.from_numpy_array(graph_ref_adj),
         )

@@ -36,13 +36,23 @@ def test_config_execution(config_path, workspace, run_bench):
 
         config_data = yaml.safe_load(f)
 
-    metrics = config_data.get("metrics", [])
+    metric_to_run = config_data.get("metrics", [])[0]
+    top_metric_name = metric_to_run["name"]
+    top_metric_inst = METRIC_REGISTRY[top_metric_name](None, None, {})
+
+    # need to traverse the tree of submetrics to get all the leaf metrics
+    def get_leaf_metrics(metric_inst):
+        if len(metric_inst.submetrics) == 0:
+            return [metric_inst]
+        else:
+            leaves = []
+            for submetric in metric_inst.submetrics:
+                leaves.extend(get_leaf_metrics(submetric(None, None, {})))
+            return leaves
+
     output_required_files = set()
-    for metric in metrics:
-        metric_name = metric["name"]
-        output_required_files.add(
-            METRIC_REGISTRY[metric_name](None, None, {}).output_path_name.value
-        )
+    for metric in get_leaf_metrics(top_metric_inst):
+        output_required_files.add(metric.output_path_name.value)
 
     output_required_files.update(
         [
@@ -91,40 +101,20 @@ def test_config_execution(config_path, workspace, run_bench):
     # config is going to include BaseMetric (i.e. all of them)
     print(db_contents)
 
-    for metric in metrics:
-        metric_name = metric["name"]
+    for metric in get_leaf_metrics(top_metric_inst):
+        metric_name = metric.__class__.__name__
         print("Metric name:", metric_name)
 
-        # now we should iterate over all the submetrics if it is hierarchical
-        if len(METRIC_REGISTRY[metric_name].submetrics) == 0:
-            # skip hierarchical metrics
-            evals = db_manager.get_evals_per_metric(
-                metric_name,
-                METRIC_REGISTRY[metric_name](
-                    None, None, {}
-                )._get_param_encoding(),  # ** Note: have to use default parametrization **
-            )
-            print(
-                f"Metric {metric_name} produced {len(evals)} evaluations in the database."
-            )
-            assert (
-                len(evals) > 0
-            ), f"Metric {metric_name} produced no evaluations in the database."
-        else:
-            for submetric in METRIC_REGISTRY[metric_name].submetrics:
-                submetric_name = submetric.__name__
-                evals = db_manager.get_evals_per_metric(
-                    submetric_name,
-                    submetric(
-                        None, None, {}
-                    )._get_param_encoding(),  # ** Note: have to use default parametrization **
-                )
-                print(
-                    f"Submetric {submetric_name} of {metric_name} produced {len(evals)} evaluations in the database."
-                )
-                assert (
-                    len(evals) > 0
-                ), f"Submetric {submetric_name} of {metric_name} produced no evaluations in the database."
+        evals = db_manager.get_evals_per_metric(
+            metric_name,
+            metric._get_param_encoding(),  # ** Note: have to use default parametrization **
+        )
+        print(
+            f"Metric {metric_name} produced {len(evals)} evaluations in the database."
+        )
+        assert (
+            len(evals) > 0
+        ), f"Metric {metric_name} produced no evaluations in the database."
 
     db_manager.close()
 
