@@ -6,11 +6,16 @@ import sys
 
 @pytest.fixture
 def run_bench():
-    def _run(config_path, run_type, workspace):
+    def _run(config_path, run_type, workspace, log_name):
         project_root = Path(__file__).parent.parent
+
+        # delete any previous log file
+        log_file_path = str(project_root / "test" / "logs" / log_name)
+        if Path(log_file_path).exists():
+            Path(log_file_path).unlink()
+
         cmd = [
-            "python",
-            "src/main.py",
+            "crispy_fishstick",
             "--config",
             str(config_path),
             "--run_type",
@@ -20,7 +25,7 @@ def run_bench():
             "--database_path",
             str(workspace / "crispy_fishstick.db"),
             "--log_file",
-            str(project_root / "test" / "logs" / "tmp.log"),
+            log_file_path,
             "--log_level",
             "DEBUG",
         ]
@@ -42,11 +47,6 @@ def run_bench():
         process.wait()
         if process.returncode != 0:
             raise subprocess.CalledProcessError(process.returncode, cmd)
-
-        # delete the log file if it exists
-        log_file_path = project_root / "test" / "logs" / "tmp.log"
-        if log_file_path.exists():
-            log_file_path.unlink()
 
         return process
 

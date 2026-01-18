@@ -18,6 +18,9 @@ class AdjacencyMatrixType:
     WEIGHTED = "weighted_adjacency_matrix"
 
 
+CELL_TYPE_TO_ID_KEY = "cell_type_to_id"
+
+
 class GraphSimMetric(OntologyBasedMetrics):
     def _defaults(self):
         return {
@@ -77,11 +80,13 @@ class GraphSimMetric(OntologyBasedMetrics):
                 target_id = cell_type_to_id[target]
                 adjacency_matrix[source_id, target_id] = 1.0
 
-        self.graph_ref = adjacency_matrix
-        self.cell_type_to_id = cell_type_to_id
         logging.debug(f"Reference graph adjacency matrix:\n{adjacency_matrix}")
+        return {
+            AdjacencyMatrixType.UNWEIGHTED: adjacency_matrix,
+            CELL_TYPE_TO_ID_KEY: cell_type_to_id,
+        }
 
-    def _build_pred_graph(self, output_path):
+    def _build_pred_graph(self, output_path, cell_type_to_id):
         """
         Builds the predicted graph structure based on the output.
         """
@@ -97,7 +102,7 @@ class GraphSimMetric(OntologyBasedMetrics):
 
         # based on the predicted trajectory, we can build the adjacency matrix
         # let's use the config's threshold for an edge to be created
-        num_cell_types = len(self.cell_type_to_id)
+        num_cell_types = len(cell_type_to_id)
         weighted_adjacency_matrix = np.zeros(
             (num_cell_types, num_cell_types), dtype=np.float32
         )
@@ -105,48 +110,40 @@ class GraphSimMetric(OntologyBasedMetrics):
 
         # now we can iterate over the predicted trajectory to fill in the adjacency matrix
         for source_cell_type, target_distribution in pred_trajectory.items():
-            source_id = self.cell_type_to_id[source_cell_type]
+            source_id = cell_type_to_id[source_cell_type]
 
             for target_cell_type, prob in target_distribution.items():
-                target_id = self.cell_type_to_id[target_cell_type]
+                target_id = cell_type_to_id[target_cell_type]
                 weighted_adjacency_matrix[source_id, target_id] = prob
 
                 # avoid self-loops and any edges below the threshold
                 if source_id != target_id and prob >= self.edge_threshold:
                     adjacency_matrix[source_id, target_id] = 1.0
 
-        self.graph_pred = {
+        return {
             AdjacencyMatrixType.WEIGHTED: weighted_adjacency_matrix,
             AdjacencyMatrixType.UNWEIGHTED: adjacency_matrix,
         }
 
-    def _eval(self, output_path, dataset):
-        """
-        The graph similarity metrics we will be using will take in
-        """
-        print(f"Model outputs are found: {output_path}")
-        # build the reference graph
-        self._build_ref_graph(dataset)
+    def _prep_kwargs_for_submetric_eval(self, output_path, dataset, model):
+        graph_ref = self._build_ref_graph(dataset)
+        return {
+            # build the reference graph
+            "graph_ref": graph_ref,
+            # build the predicted graph
+            "graph_pred": self._build_pred_graph(
+                output_path, graph_ref[CELL_TYPE_TO_ID_KEY]
+            ),
+            "model": model,
+        }
 
-        # build the predicted graph
-        self._build_pred_graph(output_path)
-
-        if self.submetrics:
-            for submetric in self.submetrics:
-                submetric_instance = submetric(self.config)
-                submetric_instance._graph_sim_eval_wrapper(
-                    self.graph_pred, self.graph_ref
-                )
-        else:
-            self._graph_sim_eval_wrapper(self.graph_pred, self.graph_ref)
-
-    def _graph_sim_eval_wrapper(self, graph_pred, graph_ref):
+    def _submetric_eval(self, graph_pred, graph_ref, model):
         """
         Wrapper function to call the graph similarity evaluation, and handle database
         logging.
         """
         self.db_manager.insert_eval(
-            self.model,
+            model,
             self.__class__.__name__,
             self._get_param_encoding(),
             self._graph_sim_eval(graph_pred, graph_ref),

@@ -34,9 +34,11 @@ METRIC_REGISTRY = {}
 def register_metric(cls):
     """Decorator to register a metric class in the METRIC_REGISTRY."""
     METRIC_REGISTRY[cls.__name__] = cls
+    return cls
 
 
 # also store a registry of metrics of name to class
+@register_metric
 class BaseMetric:
     def __init__(
         self,
@@ -58,6 +60,11 @@ class BaseMetric:
         self.params = {
             "trajectory_infer_model": str(self.trajectory_infer_model),
         }
+
+        # skip the preprocessing steps if it has submetrics, as they will handle it themselves
+        if len(self.submetrics) > 0:
+            logging.debug("Metric has submetrics, skipping preprocessing.")
+            return
 
         # then we set the defaults if not provided
         # and also store them in params for database logging
@@ -83,8 +90,12 @@ class BaseMetric:
             )
 
         # initialize the dataset splits dependent on the metric and initialize the model
-        # with the dataset as its parameter
+        # with the dataset as its parameter, also create its preprocessing output path
         self._init_datasets()
+        self.models = []
+        for dataset in self.datasets:
+            output_path = self._preprocess(dataset)
+            logging.info(f"Output path for model: {output_path}")
 
     def _setup_supported_datasets(self):
         raise NotImplementedError("Subclasses should implement this method.")
@@ -111,13 +122,73 @@ class BaseMetric:
         cls.submetrics = []
 
         for base in cls.__bases__:
+            if not hasattr(base, "submetrics"):
+                base.submetrics = []
             if hasattr(base, "submetrics"):
                 base.submetrics.append(cls)
 
     # ** METRIC EVALUATION SECTION, main function to be called (no others should be called) **
-    def _eval(self, output_path):
+    def _eval(self):
         """
-        Subclasses should implement this method to evaluate the metric.
+        Main evaluation function which calls all the submetrics if applicable.
+
+        This function will be called after the model has been trained and tested,
+        and the model outputs are available at output_path.
+
+        Subclasses should implement the method `_submetric_eval` to evaluate the metric
+        based on the model outputs and the dataset.
+        """
+        # assert that the preprocessing was done correctly
+        # we assume that each model corresponds to a dataset
+        assert len(self.models) == len(
+            self.datasets
+        ), "Number of models and datasets must be the same."
+
+        for model, dataset in zip(self.models, self.datasets):
+            # this preprocessing step already happens during creation, skip this here!
+            output_path = self.db_manager.get_model_output_path(model)
+
+            if self.config.run_type == RunType.PREPROCESS:
+                logging.debug(
+                    "Run type is PREPROCESS. Skipping model training and metric evaluation."
+                )
+            elif self.config.run_type == RunType.AUTO_TRAIN_TEST:
+                # only run this if the model output doesn't already exist
+                if not os.path.exists(
+                    os.path.join(output_path, self.output_path_name.value)
+                ):
+                    model.train_and_test(
+                        os.path.join(output_path, self.MODEL_CONFIG_FILENAME)
+                    )
+                else:
+                    logging.info(
+                        f"Model output already exists at {os.path.join(output_path, self.output_path_name.value)}. Skipping training and generation."
+                    )
+
+            if self.config.run_type in [RunType.EVAL_ONLY, RunType.AUTO_TRAIN_TEST]:
+                # verify that there is the model output where expected
+                assert os.path.exists(
+                    os.path.join(output_path, self.output_path_name.value)
+                ), f"Model output file not found: {os.path.join(output_path, self.output_path_name.value)}"
+
+                # finally, we evaluate on the test data (ground truth)
+                # and the predicted data from the model
+                self._submetric_eval(
+                    **self._prep_kwargs_for_submetric_eval(output_path, dataset, model)
+                )
+
+    def _prep_kwargs_for_submetric_eval(self, output_path, dataset, model):
+        """
+        Prepares the keyword arguments required for submetric evaluation.
+
+        Subclasses can override this method to provide specific arguments
+        needed for their submetric evaluations.
+        """
+        raise NotImplementedError("Subclasses should implement this method.")
+
+    def _submetric_eval(self, **kwargs):
+        """
+        Subclasses can implement this method to evaluate submetrics.
         """
         raise NotImplementedError("Subclasses should implement this method.")
 
@@ -131,7 +202,8 @@ class BaseMetric:
             and type(self.output_path_name) is OutputPathName
         ), "Subclasses must define output_path_name of type OutputPathName"
 
-        self.model = ModelManager(self.config, dataset)
+        model = ModelManager(self.config, dataset)
+        self.models.append(model)
 
         # ** NOTE **
         # because it doesn't cost much (as it did before with the dataset preprocessing)
@@ -145,9 +217,7 @@ class BaseMetric:
         # (e.g., embedding.pkl, graph_sim.pkl, etc.)
         # we will first insert a yaml config file that the model can use to
         # train and test on this dataset
-        hash_output_dir = self.model._encode_output_path()
-        output_path = os.path.join(self.config.output_dir, hash_output_dir)
-
+        output_path = os.path.join(self.config.output_dir, model._encode_output_path())
         os.makedirs(output_path, exist_ok=True)
 
         # to make our lives easier, we will also pickle our current dataset object
@@ -179,53 +249,31 @@ class BaseMetric:
             yaml.safe_dump(yaml_config, f)
 
         # now let's save this hash output dir to the database as well, only if it doesn't exist
-        if self.db_manager.get_model_output_path(self.model) is None:
-            self.db_manager.insert_model_output(self.model, output_path)
+        if self.db_manager.get_model_output_path(model) is None:
+            self.db_manager.insert_model_output(model, output_path)
 
         return output_path
 
     @final
     def eval(self):
         """
-        Evaluates the model on the dataset according to the metric.
+        Evaluation function that handles the calling of submetrics if applicable.
 
-        First, however, this method will:
-        1) preprocess the dataset according to the metric's needs
-        2) train the model on the preprocess dataset and test it
-        3) evaluate the metric
+        Basically it happens as follows:
+        1. If there are submetrics defined, we create an instance of each submetric
+        2. We call the _eval function of each submetric. This ensures that each submetric
+           can handle its own evaluation logic, datasets that it chooses, and models that it runs on.
+        3. From this _eval function, we further call the _submetric_eval function that each subclass
+           must implement to handle the actual evaluation logic.
         """
-        # always have to preprocess - self.datasets is required for eval
-        # 1) for each dataset, we preprocess the output model directory and dataset,
-        # train/test, and evaluate
-        for dataset in self.datasets:
-            output_path = self._preprocess(dataset)
-            if self.config.run_type == RunType.PREPROCESS:
-                logging.debug(
-                    "Run type is PREPROCESS. Skipping model training and metric evaluation."
+        if self.submetrics:
+            for submetric in self.submetrics:
+                submetric_instance: BaseMetric = submetric(
+                    self.config, self.db_manager, {}
                 )
-                logging.info(f"Output path for model: {output_path}")
-            elif self.config.run_type == RunType.AUTO_TRAIN_TEST:
-                # only run this if the model output doesn't already exist
-                if not os.path.exists(
-                    os.path.join(output_path, self.output_path_name.value)
-                ):
-                    self.model.train_and_test(
-                        os.path.join(output_path, self.MODEL_CONFIG_FILENAME)
-                    )
-                else:
-                    logging.info(
-                        f"Model output already exists at {os.path.join(output_path, self.output_path_name.value)}. Skipping training and generation."
-                    )
-
-            if self.config.run_type in [RunType.EVAL_ONLY, RunType.AUTO_TRAIN_TEST]:
-                # verify that there is the model output where expected
-                assert os.path.exists(
-                    os.path.join(output_path, self.output_path_name.value)
-                ), f"Model output file not found: {os.path.join(output_path, self.output_path_name.value)}"
-
-                # finally, we evaluate on the test data (ground truth)
-                # and the predicted data from the model
-                self._eval(output_path, dataset)
+                submetric_instance.eval()
+        else:
+            self._eval()
 
     # ** PREPROCESSING DATASET SECTION **
     @final
@@ -284,10 +332,21 @@ class BaseMetric:
         logging.debug("-" * 100)
 
         # 1) check that all the specified datasets are supported by this metric
+        # if not, we simply take the ones that are supported
+        dataset_for_metric = []
         for dataset in self.config.datasets:
-            assert (
-                dataset["name"] in self.supported_datasets
-            ), f"Dataset {dataset} not supported by this metric."
+            if dataset["name"] in self.supported_datasets:
+                dataset_for_metric.append(dataset)
+            else:
+                logging.warning(
+                    f"Dataset {dataset} not supported by this metric {self.__class__.__name__}."
+                )
+
+        logging.debug(
+            "-" * 50 + f"Datasets for metric {self.__class__.__name__}" + "-" * 50
+        )
+        logging.debug(dataset_for_metric)
+        logging.debug("-" * 100)
 
         # 2) initialize the dataset and the dataset filters based on the config
         # for some reason, we need to create a wrapper function here, as lambdas don't work well...
@@ -306,20 +365,20 @@ class BaseMetric:
         # and the outer list corresponds to the datasets
         self.dataset_filters_builders_list = []
 
-        for dataset in self.config.datasets:
+        for dataset in dataset_for_metric:
             builders = []
             for dataset_filter in dataset["filters"]:
                 builders.append(dataset_filters_builder_wrapper(dataset_filter))
             self.dataset_filters_builders_list.append(builders)
 
         assert len(self.dataset_filters_builders_list) == len(
-            self.config.datasets
+            dataset_for_metric
         ), "Mismatch in number of datasets and dataset filter builders."
 
         # 3) finally, with the dataset filters built, we create all the filters that we need
         self.datasets = []
         for dataset, builders in zip(
-            self.config.datasets, self.dataset_filters_builders_list
+            dataset_for_metric, self.dataset_filters_builders_list
         ):
             # now we create a dataset instance with the appropriate filters
             self.datasets.append(

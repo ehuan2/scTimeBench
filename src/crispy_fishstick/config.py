@@ -188,7 +188,9 @@ class Config:
                 )
 
         # validate the fields within each larger section
-        dataset_required_fields = ["data_path", "name", "filters"]
+        # N.B.: we don't need them to specify filters because it might already be preprocessed
+        dataset_required_fields = ["data_path", "name"]
+        dataset_optional_fields = ["filters"]
         dataset_alternate_field = "tag"
         model_required_fields = ["name"]
 
@@ -210,7 +212,10 @@ class Config:
             # also ensure that all the fields found in the dataset are only of the required fields
             # this is to ensure caching also works properly
             for field in dataset.keys():
-                if field not in dataset_required_fields:
+                if (
+                    field not in dataset_required_fields
+                    and field not in dataset_optional_fields
+                ):
                     raise ValueError(
                         f"Unknown field '{field}' found in dataset config. Allowed fields are {dataset_required_fields} or '{dataset_alternate_field}'."
                     )
