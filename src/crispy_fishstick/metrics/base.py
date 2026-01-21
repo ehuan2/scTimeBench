@@ -268,8 +268,15 @@ class BaseMetric:
         """
         if self.submetrics:
             for submetric in self.submetrics:
+                # pass in the trajectory inference model as part of the config
                 submetric_instance: BaseMetric = submetric(
-                    self.config, self.db_manager, {}
+                    self.config,
+                    self.db_manager,
+                    {
+                        "trajectory_infer_model": self.metric_config.get(
+                            "trajectory_infer_model", {}
+                        )
+                    },
                 )
                 submetric_instance.eval()
         else:

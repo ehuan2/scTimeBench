@@ -6,6 +6,7 @@ from sklearn.neighbors import NearestNeighbors
 from crispy_fishstick.shared.constants import ObservationColumns, RequiredOutputColumns
 import numpy as np
 import json
+import logging
 
 
 # TODO: build a unit test for this class, to ensure that we're doing this properly
@@ -26,50 +27,70 @@ class kNN(BaseTrajectoryInferMethod):
         """
         # get the embeddings and timepoints
         embeddings = ann_data.obsm[RequiredOutputColumns.EMBEDDING.value]
+        next_timepoint_embeddings = ann_data.obsm[
+            RequiredOutputColumns.NEXT_TIMEPOINT_EMBEDDING.value
+        ]
         timepoints = ann_data.obs[ObservationColumns.TIMEPOINT.value]
         cell_types = ann_data.obs[ObservationColumns.CELL_TYPE.value]
         unique_timepoints = sorted(np.unique(timepoints))
-        print(cell_types.unique())
+        logging.debug(cell_types.unique())
 
         cell_lineage = {}
         for i in range(len(unique_timepoints) - 1):
-            tp_current = unique_timepoints[i]
-            tp_next = unique_timepoints[i + 1]
-
-            # get indices for current and next timepoints
-            idx_current = np.where(timepoints == tp_current)[0]
-            idx_next = np.where(timepoints == tp_next)[0]
+            # get indices for current timepoint
+            idx_current = np.where(timepoints == unique_timepoints[i])[0]
+            # get indices for next timepoint
+            idx_next = np.where(timepoints == unique_timepoints[i + 1])[0]
+            # get the cell types for the next timepoint, where idx_next[i] corresponds to next_cell_types[i]
+            next_cell_types = cell_types.iloc[idx_next]
 
             # get embeddings for current and next timepoints
-            emb_current = embeddings[idx_current]
-            emb_next = embeddings[idx_next]
+            pred_emb_next = next_timepoint_embeddings[idx_current]
+            embed_next = embeddings[idx_next]
 
             # build kNN model based on next timepoint embeddings
-            if emb_next.shape[0] < self.n_neighbors:
-                n_neighbors = emb_next.shape[0]
+            if embed_next.shape[0] < self.n_neighbors:
+                n_neighbors = embed_next.shape[0]
             else:
                 n_neighbors = self.n_neighbors
 
+            # now we fit a kNN on the true next timepoint embeddings
             knn_model = NearestNeighbors(n_neighbors=n_neighbors)
-            knn_model.fit(emb_next)
+            knn_model.fit(embed_next)
 
-            # find kNN for each cell in current timepoint
-            _, indices = knn_model.kneighbors(emb_current)
+            # find kNN for each cell in current timepoint's predicted next embeddings
+            # this results in indices of shape (num_cells_current_timepoint, n_neighbors)
+            # where the n_neighbors are indices from embed_next
+            _, indices = knn_model.kneighbors(pred_emb_next)
+
+            # we want the number of rows to match the number of cells in the current timepoint
+            assert indices.shape[0] == idx_current.shape[0]
 
             # map cell types from current to next timepoint
             for j, idx in enumerate(idx_current):
+                # these are the original cell types
                 source_cell_type = cell_types.iloc[idx]
-                target_cell_types = cell_types.iloc[idx_next[indices[j]]]
+                # then we want the cell types of the neighbours, by
+                # getting the indices from the next timepoint which are closest
+
+                # indices[j]: represents the embed_next indices in idx_next
+                # next_cell_types: indexed by idx_next
+                target_cell_types = next_cell_types.iloc[indices[j]].values
 
                 # then each source cell type maps to multiple target cell types
                 # where we'll be keeping count of each cell type to create a distribution later
                 if source_cell_type not in cell_lineage:
                     cell_lineage[source_cell_type] = {}
 
+                # TODO: change this to a majority vote or something similar later
                 for target_cell_type in target_cell_types:
                     if target_cell_type not in cell_lineage[source_cell_type]:
                         cell_lineage[source_cell_type][target_cell_type] = 0
                     cell_lineage[source_cell_type][target_cell_type] += 1
+
+            logging.debug(
+                f"Processed timepoint {unique_timepoints[i]} resulting in lineage: {cell_lineage}"
+            )
 
         # then we should normalize the counts to get probabilities
         for source_cell_type in cell_lineage.keys():
