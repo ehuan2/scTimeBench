@@ -8,6 +8,7 @@ import logging
 
 
 class GraphEditDistance(GraphSimMetric):
+    # TODO: make this weighted as well! -- need to have some more fixes later (in terms of submetrics!)
     def _graph_sim_eval(self, graph_pred, graph_ref):
         """
         The graph similarity metrics we will be using will take in

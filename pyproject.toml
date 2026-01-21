@@ -10,7 +10,9 @@ dependencies = [
     "numpy",
     "PyYAML",
     "scanpy",
-    "scikit_learn"
+    "scikit_learn",
+    "geomloss",
+    "pykeops"
 ]
 
 [tool.setuptools.packages.find]
