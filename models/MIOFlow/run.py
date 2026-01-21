@@ -73,10 +73,10 @@ def model_training(
     use_cuda: bool,
 ):
     # Model training
-    n_local_epochs = metadata.get("n_local_epochs", 20)
-    n_epochs = metadata.get("n_epochs", 80)
+    n_local_epochs = metadata.get("n_local_epochs", 1) # TODO updated back to 20
+    n_epochs = metadata.get("n_epochs", 1) # TODO  updated back to 80
     n_post_local_epochs = metadata.get("n_post_local_epochs", 0)
-    batch_size = metadata.get("batch_size", 64)
+    batch_size = metadata.get("batch_size", 64) #TODO re-evaluate appropriate batch size
     layers = [int(x) for x in metadata.get("layers", "16,32,16").split(",") if x.strip() != ""]
     lambda_density = metadata.get("lambda_density", 5.0)
     use_density_loss = metadata.get("use_density_loss", False)
@@ -89,6 +89,7 @@ def model_training(
     ot_lambda_global = {i: 1.0 for i in range(len(groups))}
 
     training_regimen(
+        sample_with_replacement=True, ## TODO assess if this should be used or addressed elsewhere
         n_local_epochs=n_local_epochs,
         n_epochs=n_epochs,
         n_post_local_epochs=n_post_local_epochs,
@@ -304,19 +305,60 @@ class MIOFlow(BaseModel):
             recon=self.use_gae,
         )
 
-        # generated shape: (n_timepoints, n_cells, n_pca)
-        # Use the first timepoint embeddings as a stand-in for per-cell embeddings
-        embeds = generated[0]
+        generated = np.asarray(generated)
+        tp_to_gen_pos = {tp_idx: i for i, tp_idx in enumerate(all_tp_indices)}
+        rng = np.random.default_rng(0)
+
+        def _select_generated(gen, gen_pos, n_cells):
+            if gen.ndim == 3:
+                gen_slice = gen[gen_pos]
+                if gen_slice.shape[0] == n_cells:
+                    return gen_slice
+                if gen_slice.shape[0] < n_cells:
+                    idx = rng.choice(gen_slice.shape[0], size=n_cells, replace=True)
+                    return gen_slice[idx]
+                return gen_slice[:n_cells]
+            if gen.ndim == 2:
+                gen_vec = gen[gen_pos]
+                return np.repeat(gen_vec[None, :], n_cells, axis=0)
+            if gen.ndim == 1:
+                return np.repeat(gen[None, :], n_cells, axis=0)
+            raise ValueError(f"Unexpected generated shape: {gen.shape}")
+
+        if generated.ndim == 3:
+            n_features = generated.shape[2]
+        elif generated.ndim == 2:
+            n_features = generated.shape[1]
+        elif generated.ndim == 1:
+            n_features = generated.shape[0]
+        else:
+            raise ValueError(f"Unexpected generated shape: {generated.shape}")
+
+        embeds = np.empty((test_ann_data.n_obs, n_features), dtype=generated.dtype)
+        for tp in unique_tps:
+            mask = cell_tps == tp
+            tp_idx = self.tp_to_idx.get(tp)
+            if tp_idx is None or tp_idx not in tp_to_gen_pos:
+                raise ValueError(f"Timepoint {tp} not found in generated samples.")
+            gen_pos = tp_to_gen_pos[tp_idx]
+            embeds[mask] = _select_generated(generated, gen_pos, int(mask.sum()))
 
         if RequiredOutputColumns.EMBEDDING in self.required_outputs:
             final_ann_data.obsm[RequiredOutputColumns.EMBEDDING.value] = embeds
 
         if RequiredOutputColumns.NEXT_TIMEPOINT_EMBEDDING in self.required_outputs:
-            # Provide next timepoint embeddings for each cell by picking the next timepoint in order
-            if generated.shape[0] > 1:
-                next_embeds = generated[1]
-            else:
-                next_embeds = np.full_like(embeds, np.nan)
+            next_embeds = np.full((test_ann_data.n_obs, n_features), np.nan, dtype=generated.dtype)
+            for i, tp in enumerate(unique_tps):
+                mask = cell_tps == tp
+                if i + 1 >= len(unique_tps):
+                    continue
+                next_tp = unique_tps[i + 1]
+                next_idx = self.tp_to_idx.get(next_tp)
+                if next_idx is None or next_idx not in tp_to_gen_pos:
+                    continue
+                gen_pos = tp_to_gen_pos[next_idx]
+                next_embeds[mask] = _select_generated(generated, gen_pos, int(mask.sum()))
+
             final_ann_data.obsm[
                 RequiredOutputColumns.NEXT_TIMEPOINT_EMBEDDING.value
             ] = next_embeds
