@@ -25,9 +25,30 @@ fi
 echo "Success: Found $FILE_PATH"
 echo "Processing content..."
 
-# 5. Pip install mioflow dependencies
-echo "Activating MIOFlow virtual environment..."
-pip install MIOFlow
+# 4. Ensure a virtual environment exists at venv/mioflow, activate or create it
+VENV_DIR="./venv/mioflow"
+
+if [ -d "$VENV_DIR" ] && [ -f "$VENV_DIR/bin/activate" ]; then
+    echo "Found virtualenv at $VENV_DIR. Activating..."
+    # shellcheck disable=SC1091
+    source "$VENV_DIR/bin/activate"
+else
+    echo "Virtualenv not found at $VENV_DIR. Creating..."
+    python3 -m venv "$VENV_DIR"
+    if [ -f "$VENV_DIR/bin/activate" ]; then
+        # shellcheck disable=SC1091
+        source "$VENV_DIR/bin/activate"
+    else
+        echo "Error: failed to create virtualenv at $VENV_DIR"
+        exit 1
+    fi
+
+    echo "Upgrading pip and installing MIOFlow into the virtualenv..."
+    pip install --upgrade pip
+    pip install MIOFlow
+    pip install -e . #makes crispy-fishstick accessible in the venv
+fi
 
 # 6. Now let's run train and test on model.py with the provided YAML file
+echo "Running train and test with the activated virtualenv..."
 python ./models/MIOFlow/run.py --yaml_config "$FILE_PATH"
