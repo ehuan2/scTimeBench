@@ -350,3 +350,10 @@ class DatabaseManager:
             )
 
         return outputs
+
+    # ** CLEAR TABLES **
+    def clear_tables(self):
+        cursor = self.conn.cursor()
+        for table in self.table_names:
+            cursor.execute(f"DELETE FROM {table}")
+        self.conn.commit()
