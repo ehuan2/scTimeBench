@@ -120,6 +120,9 @@ class Classifier(BaseTrajectoryInferMethod):
         # get the embeddings and timepoints
         embeddings = ann_data.obsm[RequiredOutputColumns.EMBEDDING.value]
         cell_types = ann_data.obs[ObservationColumns.CELL_TYPE.value]
+        next_timepoint_embeddings = ann_data.obsm[
+            RequiredOutputColumns.NEXT_TIMEPOINT_EMBEDDING.value
+        ]
 
         # load the classifier model or train a new one if not exists
         X_train, X_test, y_train, y_test = train_test_split(
@@ -148,5 +151,6 @@ class Classifier(BaseTrajectoryInferMethod):
         logging.debug(f"Classifier test accuracy: {accuracy}")
 
         # then let's get the logits on the test dataset, and calculate the entropy
-        probas = self.classifier.predict_proba(X_test)
-        return probas, accuracy
+        test_probas = self.classifier.predict_proba(X_test)
+        next_tp_probas = self.classifier.predict_proba(next_timepoint_embeddings)
+        return test_probas, accuracy, next_tp_probas

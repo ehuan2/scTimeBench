@@ -47,14 +47,25 @@ class ClassificationEntropy(TrajectoryEmbeddingMetrics):
 
     def _embedding_eval(self, output_path):
         model_output_file = os.path.join(output_path, self.output_path_name.value)
-        probas, accuracy = self.trajectory_infer_model.train_and_predict(
-            model_output_file
-        )
+        (
+            test_probas,
+            accuracy,
+            next_tp_probas,
+        ) = self.trajectory_infer_model.train_and_predict(model_output_file)
 
-        entropy = -np.sum(probas * np.log(probas + 1e-10), axis=1)  # avoid log(0)
+        entropy = -np.sum(
+            test_probas * np.log(test_probas + 1e-10), axis=1
+        )  # avoid log(0)
         logging.debug(f"Average classification entropy: {np.mean(entropy)}")
 
-        num_classes = probas.shape[1]
+        predicted_entropy = -np.sum(
+            next_tp_probas * np.log(next_tp_probas + 1e-10), axis=1
+        )  # avoid log(0)
+        logging.debug(
+            f"Average predicted classification entropy: {np.mean(predicted_entropy)}"
+        )
+
+        num_classes = test_probas.shape[1]
         normalized_entropy = entropy / np.log(num_classes)
 
         return json.dumps(
@@ -65,5 +76,10 @@ class ClassificationEntropy(TrajectoryEmbeddingMetrics):
                 "std_normalized_entropy": np.std(normalized_entropy).item(),
                 "num_classes": num_classes,
                 "classifier_accuracy": accuracy,
+                "pred_tp_avg_entropy": np.mean(predicted_entropy).item(),
+                "pred_tp_avg_normalized_entropy": np.mean(
+                    predicted_entropy / np.log(num_classes)
+                ).item(),
+                "pred_tp_std_entropy": np.std(predicted_entropy).item(),
             }
         )
