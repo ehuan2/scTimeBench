@@ -364,35 +364,6 @@ class BaseTrajectoryInferMethod:
                 inferred_traj[cur_cell][predicted_next] = 0
             inferred_traj[cur_cell][predicted_next] += 1
 
-        """
-        timepoints = ann_data.obs[ObservationColumns.TIMEPOINT.value][indices]
-        unique_timepoints = sorted(np.unique(timepoints))
-        This comment here describes how to do it per timepoint
-        for i in range(len(unique_timepoints) - 1):
-            # get indices for the current timepoint
-            idx_current = np.where(timepoints == unique_timepoints[i])[0]
-
-            # get the predicted probabilities for the current timepoint
-            # TODO: just use predicted next as probabilities instead as an option
-            logging.debug(f"Next timepoint probabilities for timepoint {unique_timepoints[i]}: {next_tp_embed_probs[idx_current]}")
-            logging.debug(f'Index to cell type mapping: {idx_to_cell_types}')
-            logging.debug(f'Max args: {np.argmax(next_tp_embed_probs[idx_current], axis=1)}')
-            predicted_next = [
-                idx_to_cell_types[idx]
-                for idx in np.argmax(next_tp_embed_probs[idx_current], axis=1)
-            ]
-
-            # now that we have the predicted next, we build the lineage mapping
-            for cur_cell, next_cell in zip(
-                cell_types.iloc[idx_current], predicted_next
-            ):
-                if cur_cell not in inferred_traj:
-                    inferred_traj[cur_cell] = {}
-                if next_cell not in inferred_traj[cur_cell]:
-                    inferred_traj[cur_cell][next_cell] = 0
-                inferred_traj[cur_cell][next_cell] += 1
-        """
-
         logging.debug(f"Constructed cell lineage (raw counts): {inferred_traj}")
 
         # then we should normalize the counts to get probabilities
