@@ -337,7 +337,7 @@ class BaseMetric:
                 new_datasets.append(dataset)
 
         # now we modify the data paths if a data_dir is specified
-        if self.config.data_dir is not None:
+        if hasattr(self.config, "data_dir"):
             for dataset in new_datasets:
                 # if the data_path is not absolute, we join it with data_dir
                 if os.path.isabs(dataset["data_path"]):

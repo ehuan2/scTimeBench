@@ -3,17 +3,11 @@ Classifier implementation for trajectory inference.
 """
 from crispy_fishstick.trajectory_infer.base import (
     BaseTrajectoryInferMethod,
-    INFERRED_TRAJ_DIR,
 )
-from crispy_fishstick.shared.constants import ObservationColumns, RequiredOutputColumns
 from enum import Enum
-import numpy as np
-import scanpy as sc
 import logging
-from pathlib import Path
 
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.model_selection import train_test_split
 import joblib
 import os
 
@@ -50,96 +44,20 @@ class Classifier(BaseTrajectoryInferMethod):
         else:
             raise ValueError(f"Unsupported classifier type: {self.method_name}")
 
-    def _parameters(self):
+    def _subclass_parameters(self):
         return {
             "classifier": self.method_name.value,
             "n_estimators": self.classifier.n_estimators,
             "max_depth": self.classifier.max_depth,
-            "test_size": self.traj_config.get("test_size", 0.2),
-            "random_state": self.classifier.random_state,
         }
 
-    def _method_infer_trajectory(self, ann_data, traj_infer_path):
-        """
-        Infer the trajectory using kNN graph-based method.
-
-        1. We can accomplish this by first separating each embedding based on time.
-        2. Then, for each time point, we find the k nearest neighbors in the next time point's
-        embedding space.
-        3. Finally, we consolidate the cell types per time point based on the kNN results.
-        """
-        logging.debug(
-            f"Inferring trajectory using Classifier: {self.method_name.value}"
-        )
-
-        # get the embeddings and timepoints
-        next_timepoint_embeddings = ann_data.obsm[
-            RequiredOutputColumns.NEXT_TIMEPOINT_EMBEDDING.value
-        ]
-        timepoints = ann_data.obs[ObservationColumns.TIMEPOINT.value]
-        cell_types = ann_data.obs[ObservationColumns.CELL_TYPE.value]
-        unique_timepoints = sorted(np.unique(timepoints))
-
-        # first we simply build a classifier based on all the timepoints,
-        # then we build the lineage mapping later
-        # to do this, we first fit the classifier on a random 80% of the data, then test on the remaining 20%
-        self._subclass_train_and_predict(ann_data, traj_infer_path)
-
-        # now we build the lineage mapping
-        cell_lineage = {}
-        for i in range(len(unique_timepoints) - 1):
-            # get indices for the current timepoint
-            idx_current = np.where(timepoints == unique_timepoints[i])[0]
-
-            # get embeddings for current and next timepoints
-            emb_next = next_timepoint_embeddings[idx_current]
-
-            # use the classifier to classify each cell in the next timepoint
-            predicted_next = self.classifier.predict(emb_next)
-
-            # now that we have the predicted next, we build the lineage mapping
-            for cur_cell, next_cell in zip(
-                cell_types.iloc[idx_current], predicted_next
-            ):
-                if cur_cell not in cell_lineage:
-                    cell_lineage[cur_cell] = {}
-                if next_cell not in cell_lineage[cur_cell]:
-                    cell_lineage[cur_cell][next_cell] = 0
-                cell_lineage[cur_cell][next_cell] += 1
-
-        logging.debug(f"Constructed cell lineage (raw counts): {cell_lineage}")
-
-        # then we should normalize the counts to get probabilities
-        for source_cell_type in cell_lineage.keys():
-            total_counts = sum(cell_lineage[source_cell_type].values())
-            for target_cell_type in cell_lineage[source_cell_type]:
-                cell_lineage[source_cell_type][target_cell_type] /= total_counts
-
-        return cell_lineage
-
-    def _subclass_train_and_predict(self, ann_data, traj_infer_path):
+    def _subclass_train(self, X_train, y_train, traj_infer_path):
         """
         Classification entropy is simply the fitted model's entropy over the predicted
         trajectories.
         """
-        # get the embeddings and timepoints
-        embeddings = ann_data.obsm[RequiredOutputColumns.EMBEDDING.value]
-        cell_types = ann_data.obs[ObservationColumns.CELL_TYPE.value]
-        next_timepoint_embeddings = ann_data.obsm[
-            RequiredOutputColumns.NEXT_TIMEPOINT_EMBEDDING.value
-        ]
-
-        # load the classifier model or train a new one if not exists
-        X_train, X_test, y_train, y_test = train_test_split(
-            embeddings,
-            cell_types,
-            test_size=self.traj_config.get("test_size", 0.2),
-            random_state=self.traj_config.get("random_state", 42),
-        )
-
         if os.path.exists(os.path.join(traj_infer_path, CLASSIFIER_SAVE_FILE)):
             logging.debug("Loading existing classifier model from disk.")
-
             self.classifier = joblib.load(
                 os.path.join(traj_infer_path, CLASSIFIER_SAVE_FILE)
             )
@@ -151,52 +69,15 @@ class Classifier(BaseTrajectoryInferMethod):
                 os.path.join(traj_infer_path, CLASSIFIER_SAVE_FILE),
             )
 
-        # now let's log out the classifier's accuracy and other metrics:
-        accuracy = self.classifier.score(X_test, y_test)
-        logging.debug(f"Classifier test accuracy: {accuracy}")
+    def _subclass_predict_probs(self, embeds):
+        """
+        Perform prediction using the trained classifier and return probabilities.
+        """
+        assert self.classifier is not None, "Classifier model is not trained."
 
         # then let's get the logits on the test dataset, and calculate the entropy
-        test_probas = self.classifier.predict_proba(X_test)
-        next_tp_probas = self.classifier.predict_proba(next_timepoint_embeddings)
-        return test_probas, accuracy, next_tp_probas
+        test_probas = self.classifier.predict_proba(embeds)
+        logging.debug(f"Predicted probabilities on test set: {test_probas}")
 
-    def train_and_predict(self, model_output_file):
-        """
-        Trains and predicts using the trajectory inference model, returning the probabilities
-        """
-        ann_data = sc.read_h5ad(model_output_file)
-
-        required_obs_columns = [
-            ObservationColumns.CELL_TYPE.value,
-            ObservationColumns.TIMEPOINT.value,
-        ]
-
-        required_obsm_columns = [
-            RequiredOutputColumns.EMBEDDING.value,
-            RequiredOutputColumns.NEXT_TIMEPOINT_EMBEDDING.value,
-        ]
-
-        for col in required_obs_columns:
-            if col not in ann_data.obs.columns:
-                raise ValueError(
-                    f"Predicted graph data must have '{col}' in observation metadata."
-                )
-        for col in required_obsm_columns:
-            if col not in ann_data.obsm.keys():
-                raise ValueError(
-                    f"Predicted graph data must have '{col}' in observation embeddings."
-                )
-
-        logging.debug(
-            f"Evaluating classification entropy with method: {self.__class__.__name__} and config: {self.traj_config}"
-        )
-
-        # we use the same cached trajectory path so that way we can save classifiers
-        # in the future if needed, as it takes time to fit
-        model_output_path = Path(model_output_file).parent
-        traj_infer_path = os.path.join(
-            model_output_path, INFERRED_TRAJ_DIR, self.encode()
-        )
-        os.makedirs(traj_infer_path, exist_ok=True)
-
-        return self._subclass_train_and_predict(ann_data, traj_infer_path)
+        # turn the index to cell types mapping
+        return test_probas, list(self.classifier.classes_)

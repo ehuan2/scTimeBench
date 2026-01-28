@@ -15,6 +15,3 @@ class AggregateEmbeddingMetrics(EmbeddingMetrics):
         self.required_outputs = [
             RequiredOutputColumns.EMBEDDING,
         ]
-
-    def _embedding_eval(self, output_path):
-        return None
