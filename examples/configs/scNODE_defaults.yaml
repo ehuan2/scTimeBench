@@ -1,9 +1,27 @@
+datasets:
+  - tag: defaultGarciaAlonso
+
 model:
   name: scNODE
   train_and_test_script: ./models/scNODE/train_and_test.sh
 
 metrics:
-  - name: GraphEditDistance
+  # - name: ClassifierMetrics
+  #   trajectory_infer_model:
+  #     name: Classifier
+
+  # - name: ClassifierMetrics
+  #   trajectory_infer_model:
+  #     name: kNN
+
+  - name: ClassifierMetrics
+    k_folds: 1
+    trajectory_infer_model:
+      name: OptimalTransport
+      # n_neighbors: 5
+  #     metric: 'cosine'
+  #     n_neighbors: 1
+
   # - name: ARI
 # TODO: figure out why unbalanced OT does not work for Suo...
 # TODO: add this as a test
