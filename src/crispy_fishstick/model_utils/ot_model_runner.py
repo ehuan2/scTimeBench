@@ -69,7 +69,6 @@ class BaseOTModel(BaseModel):
         """
         print(f"Generating using OT-based method...")
         final_ann_data = test_ann_data.copy()
-
         # Get timepoint information
         test_tps = test_ann_data.obs[ObservationColumns.TIMEPOINT.value].to_numpy()
         unique_tps = sorted(np.unique(test_tps))
@@ -82,7 +81,22 @@ class BaseOTModel(BaseModel):
         )
 
         if require_next_tp:
-            # Process each timepoint transition
+            # needs to be written here to avoid overwriting during transport plan computation
+            if RequiredOutputColumns.NEXT_CELLTYPE in self.required_outputs:
+                final_ann_data.obsm[
+                    RequiredOutputColumns.NEXT_CELLTYPE.value
+                ] = np.full((test_ann_data.n_obs,), "unknown", dtype=object)
+
+            if (
+                RequiredOutputColumns.NEXT_TIMEPOINT_GENE_EXPRESSION
+                in self.required_outputs
+            ):
+                final_ann_data.obsm[
+                    RequiredOutputColumns.NEXT_TIMEPOINT_GENE_EXPRESSION.value
+                ] = np.zeros(
+                    (test_ann_data.n_obs, test_ann_data.n_vars), dtype=np.float32
+                )
+
             for i, tp in enumerate(unique_tps[:-1]):
                 print(f"Processing timepoint transition: {tp} -> {unique_tps[i + 1]}")
                 next_tp = unique_tps[i + 1]
@@ -102,9 +116,6 @@ class BaseOTModel(BaseModel):
                 ), f"Transport plan shape {transport_plan.shape} does not match the number of source and destination cells ({source_mask.sum()}, {dest_mask.sum()})"
 
                 if RequiredOutputColumns.NEXT_CELLTYPE in self.required_outputs:
-                    final_ann_data.obsm[
-                        RequiredOutputColumns.NEXT_CELLTYPE.value
-                    ] = np.full((test_ann_data.n_obs,), "unknown", dtype=object)
                     inferred_cell_types = self.get_next_cell_type_from_transport_plan(
                         transport_plan, final_ann_data, dest_mask
                     )
@@ -113,6 +124,12 @@ class BaseOTModel(BaseModel):
                     # i.e. we want to assign to cells at timepoint tp
                     for j, cell_idx in enumerate(np.where(source_mask)[0]):
                         # overwrite the obsm with the inferred cell type
+                        assert (
+                            final_ann_data.obsm[
+                                RequiredOutputColumns.NEXT_CELLTYPE.value
+                            ][cell_idx]
+                            == "unknown"
+                        ), f"Cell {cell_idx} already has a next cell type"
                         final_ann_data.obsm[RequiredOutputColumns.NEXT_CELLTYPE.value][
                             cell_idx
                         ] = inferred_cell_types[j]
@@ -123,12 +140,6 @@ class BaseOTModel(BaseModel):
                     or RequiredOutputColumns.NEXT_TIMEPOINT_EMBEDDING
                     in self.required_outputs
                 ):
-                    final_ann_data.obsm[
-                        RequiredOutputColumns.NEXT_TIMEPOINT_GENE_EXPRESSION.value
-                    ] = np.zeros(
-                        (test_ann_data.n_obs, test_ann_data.n_vars), dtype=np.float32
-                    )
-
                     # Assign inferred gene expression to the appropriate cells
                     inferred_gex = self.get_next_cell_gex_from_transport_plan(
                         transport_plan, final_ann_data, dest_mask
@@ -137,6 +148,19 @@ class BaseOTModel(BaseModel):
                         final_ann_data.obsm[
                             RequiredOutputColumns.NEXT_TIMEPOINT_GENE_EXPRESSION.value
                         ][cell_idx, :] = inferred_gex[j]
+
+            # we should verify that all the cells except at the last time point have a next cell type
+            if RequiredOutputColumns.NEXT_CELLTYPE in self.required_outputs:
+                for i, tp in enumerate(unique_tps[:-1]):
+                    source_mask = (
+                        test_ann_data.obs[ObservationColumns.TIMEPOINT.value] == tp
+                    )
+                    next_cell_types = final_ann_data.obsm[
+                        RequiredOutputColumns.NEXT_CELLTYPE.value
+                    ][source_mask]
+                    assert np.all(
+                        next_cell_types != "unknown"
+                    ), f"Some cells at timepoint {tp} do not have inferred next cell types."
 
             if RequiredOutputColumns.NEXT_TIMEPOINT_EMBEDDING in self.required_outputs:
                 # Compute embeddings for the next timepoint gene expression
@@ -166,7 +190,10 @@ class BaseOTModel(BaseModel):
             del final_ann_data.obsm[
                 RequiredOutputColumns.NEXT_TIMEPOINT_GENE_EXPRESSION.value
             ]
-        else:
+        elif (
+            RequiredOutputColumns.NEXT_TIMEPOINT_GENE_EXPRESSION
+            in self.required_outputs
+        ):
             # let's mask the next timepoint gene expression for the last timepoint to NaN
             gex_mask = (
                 final_ann_data.obs[ObservationColumns.TIMEPOINT.value] == unique_tps[-1]
@@ -243,6 +270,7 @@ class BaseOTModel(BaseModel):
             one_hot_dest[i, cell_type_to_index[ct]] = 1.0
         print(
             f"Cell type to index: {cell_type_to_index}, one hot shape: {one_hot_dest.shape}"
+            f"Unique cell types: {unique_cell_types}"
         )
 
         # 2. matrix multiplication to get distribution
@@ -263,6 +291,9 @@ class BaseOTModel(BaseModel):
                 f"Warning: {total_no_weight} source cells had zero transport weights to destination cells. This may become a source of bias."
             )
 
+        assert (
+            len(target_cell_types) == transport_plan.shape[0]
+        ), f"Length of target cell types {len(target_cell_types)} does not match number of source cells {transport_plan.shape[0]}"
         return target_cell_types
 
     def get_next_cell_gex_from_transport_plan(
