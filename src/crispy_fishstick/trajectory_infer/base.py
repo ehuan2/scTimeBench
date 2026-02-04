@@ -319,6 +319,7 @@ class BaseTrajectoryInferMethod:
         ann_data, traj_infer_path = self._prep_ann_data(model_output_file)
         logging.debug(
             f"Inferring trajectory with method: {self.__class__.__name__} and config: {self.traj_config}"
+            f"AnnData has obsm: {ann_data.obsm.keys()}."
         )
 
         # cache the inferred trajectory in a new folder under

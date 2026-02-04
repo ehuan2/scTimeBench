@@ -9,7 +9,8 @@ import os
 
 import numpy as np
 
-from crispy_fishstick.model_utils.model_runner import main, BaseOTModel
+from crispy_fishstick.model_utils.model_runner import main
+from crispy_fishstick.model_utils.ot_model_runner import BaseOTModel
 from crispy_fishstick.shared.constants import ObservationColumns
 
 import anndata
