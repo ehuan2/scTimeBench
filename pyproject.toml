@@ -8,6 +8,7 @@ version = "0.1"
 dependencies = [
     "PyYAML",
     "scanpy[leiden]",
+    "scikit_learn",
 ]
 
 [tool.setuptools.packages.find]
@@ -23,7 +24,6 @@ dev = [
 benchmark = [
     "networkx",
     "numpy",
-    "scikit_learn",
     "geomloss",
     "pykeops"
 ]
