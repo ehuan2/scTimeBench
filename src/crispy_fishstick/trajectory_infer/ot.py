@@ -7,7 +7,6 @@ import logging
 import torch
 
 from geomloss import SamplesLoss
-from pykeops.torch import generic_sum
 
 
 # TODO: build a unit test for this class, to ensure that we're doing this properly
@@ -92,6 +91,8 @@ class OptimalTransport(BaseTrajectoryInferMethod):
         Given the true embeddings, predicted embeddings and one-hot encoding of true cell types,
         get the transport plan using optimal transport
         """
+        from pykeops.torch import generic_sum
+
         ot_solver = SamplesLoss(
             "sinkhorn",
             p=2,

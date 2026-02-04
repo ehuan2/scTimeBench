@@ -1,5 +1,7 @@
 # Virtual environment directory
 venv/
+venv
+
 # Database files
 *.db
 outputs
