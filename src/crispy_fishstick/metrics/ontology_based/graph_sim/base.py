@@ -166,6 +166,7 @@ class GraphSimMetric(OntologyBasedMetrics):
 
     def _prep_kwargs_for_submetric_eval(self, output_path, dataset, model):
         graph_ref = self._build_ref_graph(dataset)
+        self.output_path = output_path
         return {
             # build the reference graph
             "graph_ref": graph_ref,

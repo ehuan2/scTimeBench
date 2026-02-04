@@ -27,6 +27,9 @@ benchmark = [
     "geomloss",
     "pykeops"
 ]
+graphviz = [
+    "graphviz"
+]
 
 [project.scripts]
 crispy_fishstick = "crispy_fishstick.main:main"
