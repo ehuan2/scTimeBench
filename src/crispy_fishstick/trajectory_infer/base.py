@@ -373,6 +373,9 @@ class BaseTrajectoryInferMethod:
         )
         # this next block gets the next cell type for us, matching the same indices as valid_timepoints
         if os.path.exists(next_celltype_path):
+            logging.debug(
+                f"Next cell type file found at {next_celltype_path}. Using it for trajectory inference."
+            )
             # load the next cell types from the parquet file
             next_celltype_df = pd.read_parquet(next_celltype_path)
             next_cell_types = next_celltype_df[
@@ -381,6 +384,9 @@ class BaseTrajectoryInferMethod:
             next_cell_types_valid = next_cell_types[valid_timepoints]
 
         else:
+            logging.debug(
+                f"No next cell type file found at {next_celltype_path}. Using trajectory inference model to predict next cell types."
+            )
             # always start by training to ensure that the model is fitted
             # we need to do the train_only option here instead of calling _train directly
             # because it does some preprocessing we don't want to repeat
