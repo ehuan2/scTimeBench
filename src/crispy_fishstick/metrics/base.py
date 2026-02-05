@@ -149,10 +149,13 @@ class BaseMetric:
 
         for model, dataset in zip(self.models, self.datasets):
             # first we skip if we already have the evaluation in the database
-            if self.db_manager.has_eval(
-                model,
-                self.__class__.__name__,
-                self._get_param_encoding(),
+            if (
+                self.db_manager.has_eval(
+                    model,
+                    self.__class__.__name__,
+                    self._get_param_encoding(),
+                )
+                and not self.config.force_rerun
             ):
                 logging.info(
                     f"Evaluation for metric {self.__class__.__name__} with params {self.params} already exists for model {model}. Skipping evaluation."

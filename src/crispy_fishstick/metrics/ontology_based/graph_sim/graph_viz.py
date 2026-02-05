@@ -19,7 +19,9 @@ class GraphVisualization(GraphSimMetric):
         """
         import graphviz
 
-        def build_graph_image(adj_matrix, cell_id_to_type, output_path):
+        def build_graph_image(
+            adj_matrix, cell_id_to_type, output_path, is_weighted=False
+        ):
             dot = graphviz.Digraph(format="png")
             num_nodes = adj_matrix.shape[0]
 
@@ -31,8 +33,12 @@ class GraphVisualization(GraphSimMetric):
             # Add edges
             for i in range(num_nodes):
                 for j in range(num_nodes):
-                    if adj_matrix[i, j] > 0:
+                    if adj_matrix[i, j] < self._defaults()["edge_threshold"]:
+                        continue
+                    if is_weighted:
                         dot.edge(str(i), str(j), label=f"{adj_matrix[i, j]:.2f}")
+                    else:
+                        dot.edge(str(i), str(j))
 
             dot.render(output_path, cleanup=True)
             logging.info(f"Graph visualization saved to {output_path}.png")
@@ -49,6 +55,7 @@ class GraphVisualization(GraphSimMetric):
             graph_pred[AdjacencyMatrixType.WEIGHTED],
             cell_id_to_type,
             os.path.join(self.output_path, "predicted_graph"),
+            is_weighted=True,
         )
         build_graph_image(
             graph_pred[AdjacencyMatrixType.UNWEIGHTED],
