@@ -30,7 +30,7 @@ class OntologyBasedMetrics(BaseMetric):
         )
 
         self.optional_datasets_path = os.path.join(
-            os.path.dirname(__file__), "optional_datasets.yaml"
+            os.path.dirname(__file__), "..", "shared", "optional_datasets.yaml"
         )
 
     def _defaults(self):
