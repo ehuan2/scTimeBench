@@ -1,2 +1,2 @@
-PGC => GC => GC_mitotic => oogonia_STRA8
-             GC_mitotic => pre_spermatogonia
+PGC => GC => oogonia
+       GC => pre_spermatogonia
