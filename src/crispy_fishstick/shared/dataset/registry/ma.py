@@ -19,8 +19,8 @@ class MaDataset(BaseDataset):
         # now let's filter out all the datapoints that are low quality
         # i.e. nan age and nan cell type
         # rename these columns to standard names
-        cell_type_col = None
-        timepoint_col = None
+        cell_type_col = "cell_type"
+        timepoint_col = "timepoint"
         cell_type_candidates = [
             "celltype",
             "cell_type",
