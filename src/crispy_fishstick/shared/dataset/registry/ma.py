@@ -18,8 +18,8 @@ class MaDataset(BaseDataset):
 
         self.data.obs = self.data.obs.rename(
             columns={
-                cell_type_col: ObservationColumns.CELL_TYPE.value,
-                timepoint_col: ObservationColumns.TIMEPOINT.value,
+                'cell_type': ObservationColumns.CELL_TYPE.value,
+                'timepoint': ObservationColumns.TIMEPOINT.value,
             }
         )
         print("Ma et al. dataset loaded successfully.")
