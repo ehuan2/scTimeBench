@@ -2,11 +2,8 @@
 Gene expression prediction metrics.
 """
 from crispy_fishstick.metrics.base import BaseMetric
-from crispy_fishstick.shared.dataset.registry import (
-    SuoDataset,
-    GarciaAlonsoDataset,
-    MaDataset,
-)
+from crispy_fishstick.shared.dataset.registry import MaDataset
+
 
 import json
 import os
@@ -16,8 +13,6 @@ class GexPredictionMetrics(BaseMetric):
     def _setup_supported_datasets(self):
         # ** NOTE: must define the following two attributes, though each subclass **
         self.supported_datasets = [
-            SuoDataset.__name__,
-            GarciaAlonsoDataset.__name__,
             MaDataset.__name__,
         ]
 
