@@ -28,6 +28,17 @@ datasets:
         cell_lineage_file: ./examples/cell_lineages/pancreas/trunk_lineage.txt
       - name: CopySplitFilter
 
+  - name: MaDataset
+    tag: EasyMa
+    data_path: ./data/ma/ma.h5ad
+     # these filters need to be in order!
+    filters:
+      - name: TimeSplitDatasetFilter
+        test_tps: [1,3,4]
+
+
+
+
 metric_groups:
   embeddings:
     dataset_tags:
@@ -39,3 +50,6 @@ metric_groups:
       - defaultSuo
       - defaultGarciaAlonso
       - defaultMa
+  gex_prediction:
+    dataset_tags:
+      - EasyMa
