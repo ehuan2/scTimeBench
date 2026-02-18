@@ -1,8 +1,8 @@
 datasets:
   - tag: defaultGarciaAlonso
-  # - tag: defaultSuo
+  - tag: defaultSuo
   - tag: defaultGarciaAlonsoPseudotimeEvenCells
-  # - tag: defaultSuoPseudotimeEvenCells
+  - tag: defaultSuoPseudotimeEvenCells
 
 model:
   name: Moscot

@@ -82,6 +82,37 @@ class StackedBarPlot(GraphSimMetric):
         CELLTYPE_COL = "Cell Type"
         COUNT_COL = "Count"
 
+        def topo_sort(cell_lineage):
+            from collections import defaultdict, deque
+
+            # Build graph and in-degree count
+            graph = defaultdict(list)
+            in_degree = defaultdict(int)
+            for parent, children in cell_lineage.items():
+                for child in children:
+                    graph[parent].append(child)
+                    in_degree[child] += 1
+                    if parent not in in_degree:
+                        in_degree[parent] = 0
+
+            # Kahn's algorithm for topological sorting
+            queue = deque([node for node in in_degree if in_degree[node] == 0])
+            topo_order = []
+
+            while queue:
+                node = queue.popleft()
+                topo_order.append(node)
+                for neighbor in graph[node]:
+                    in_degree[neighbor] -= 1
+                    if in_degree[neighbor] == 0:
+                        queue.append(neighbor)
+
+            if len(topo_order) != len(in_degree):
+                raise ValueError(
+                    "Cell lineage has a cycle, cannot perform topological sort."
+                )
+            return topo_order
+
         def plot_stacked_bar(traj_data, output_path, title):
             """
             Plots a stacked bar chart of cell type ratios over time.
@@ -103,6 +134,20 @@ class StackedBarPlot(GraphSimMetric):
             # 3. Normalize to 1 (100%) to create a "bar" / Ratio plot
             # div(..., axis=0) divides each row by its sum
             df_ratios = df_pivot.div(df_pivot.sum(axis=1), axis=0)
+
+            # 3.5. Reorder cell type columns to follow topological order from lineage
+            lineage_order = topo_sort(self.cell_lineage)
+            ordered_existing = [
+                cell_type
+                for cell_type in lineage_order
+                if cell_type in df_ratios.columns
+            ]
+            remaining = [
+                cell_type
+                for cell_type in df_ratios.columns
+                if cell_type not in ordered_existing
+            ]
+            df_ratios = df_ratios[ordered_existing + remaining]
 
             # 4. Plot as stacked bars
             ax = df_ratios.plot(

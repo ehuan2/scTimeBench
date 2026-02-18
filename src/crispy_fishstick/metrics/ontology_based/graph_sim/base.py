@@ -80,6 +80,8 @@ class GraphSimMetric(OntologyBasedMetrics):
         if cell_lineage is None:
             raise ValueError("No LineageDatasetFilter found in dataset filters.")
 
+        self.cell_lineage = cell_lineage
+
         logging.debug(f"Found cell lineage: {cell_lineage}")
         # from this cell lineage, let's:
         # 1) create an index of the cell types (so that we can keep track of the cell types to ids mapping)
