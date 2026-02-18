@@ -1,5 +1,6 @@
 datasets:
-  - tag: defaultGarciaAlonsoSceptic
+  - tag: defaultGarciaAlonsoRounded
+  - tag: defaultGarciaAlonsoPseudotimeEvenCells
 
 model:
   name: WOT

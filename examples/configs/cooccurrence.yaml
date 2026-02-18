@@ -1,7 +1,6 @@
 datasets:
-  - tag: defaultGarciaAlonsoPseudotimeMinCells
-  # - tag: defaultGarciaAlonsoPseudotimeEvenTps
-  # - tag: defaultGarciaAlonsoPseudotimeEvenCells
+  - tag: defaultGarciaAlonsoPseudotimeEvenCells
+  - tag: defaultSuoPseudotimeEvenCells
 
 model:
   name: Cooccurrence

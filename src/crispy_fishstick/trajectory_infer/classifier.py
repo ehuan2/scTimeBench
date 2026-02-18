@@ -100,6 +100,10 @@ class CellTypist(BaseTrajectoryInferMethod):
         }
 
     def _preprocess(self, data):
+        # I think the data is probably too large, here's a way to cut down on it
+        sc.pp.normalize_total(data, target_sum=1e4)
+        sc.pp.log1p(data)
+        sc.pp.highly_variable_genes(data, n_top_genes=2000, subset=True)
         sc.pp.normalize_total(data, target_sum=1e4)
         sc.pp.log1p(data)
 

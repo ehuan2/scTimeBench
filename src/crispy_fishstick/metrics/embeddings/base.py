@@ -2,7 +2,11 @@
 Embedding-based metrics.
 """
 from crispy_fishstick.metrics.base import BaseMetric
-from crispy_fishstick.shared.dataset.registry import SuoDataset, GarciaAlonsoDataset
+from crispy_fishstick.shared.dataset.registry import (
+    SuoDataset,
+    GarciaAlonsoDataset,
+    MaDataset,
+)
 
 import os
 
@@ -15,6 +19,7 @@ class EmbeddingMetrics(BaseMetric):
         self.supported_datasets = [
             SuoDataset.__name__,
             GarciaAlonsoDataset.__name__,
+            MaDataset.__name__,
         ]
 
         self.default_dataset_group = "embeddings"
