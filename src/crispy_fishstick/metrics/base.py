@@ -154,6 +154,13 @@ class BaseMetric:
             )
             return
 
+        # but if it's in the metric skip list, always skip
+        if self.__class__.__name__ in self.config.metrics_skiplist:
+            logging.info(
+                f"Skipping metric {self.__class__.__name__} as it is in the metric skip list."
+            )
+            return
+
         logging.info(f"Evaluating metric {self.__class__.__name__}")
 
         # assert that the preprocessing was done correctly
@@ -473,17 +480,14 @@ class BaseMetric:
                 }
             )
 
-        # ensure that the model caches are consistent and independent of tag aliases
-        self.config.datasets = resolved_datasets
-
         logging.debug("-" * 50 + "Datasets" + "-" * 50)
-        logging.debug(self.config.datasets)
+        logging.debug(resolved_datasets)
         logging.debug("-" * 100)
 
         # 1) check that all the specified datasets are supported by this metric
         # if not, we simply take the ones that are supported
         dataset_for_metric = []
-        for dataset in self.config.datasets:
+        for dataset in resolved_datasets:
             dataset_name = dataset.get("name")
             if dataset_name is None:
                 raise ValueError(

@@ -9,7 +9,7 @@ from crispy_fishstick.trajectory_infer.base import (
     TrajectoryInferenceMethodFactory,
     BaseTrajectoryInferMethod,
 )
-from crispy_fishstick.trajectory_infer.classifier import Classifier
+from crispy_fishstick.trajectory_infer.classifier import Classifier, ClassifierTypes
 from crispy_fishstick.trajectory_infer.kNN import kNN
 from sklearn.neighbors import NearestNeighbors
 from sklearn.metrics import f1_score
@@ -41,7 +41,11 @@ class ClassificationEntropy(TrajectoryEmbeddingMetrics):
         self.trajectory_infer_model: BaseTrajectoryInferMethod = (
             TrajectoryInferenceMethodFactory().get_trajectory_infer_method(
                 self.metric_config.get(
-                    "trajectory_infer_model", {"name": Classifier.__name__}
+                    "trajectory_infer_model",
+                    {
+                        "name": Classifier.__name__,
+                        "classifier": ClassifierTypes.RANDOM_FOREST.value,
+                    },
                 )
             )
         )
