@@ -8,6 +8,7 @@ from typing import final
 from crispy_fishstick.config import Config, RunType
 from crispy_fishstick.metrics.model_manager import ModelManager
 from crispy_fishstick.shared.dataset.base import (
+    BaseDataset,
     DATASET_REGISTRY,
     DATASET_FILTER_REGISTRY,
 )
@@ -16,6 +17,7 @@ from crispy_fishstick.shared.constants import (
     PICKLED_DATASET_FILENAME,
     MODEL_CONFIG_FILENAME,
 )
+from crispy_fishstick.shared.utils import load_test_dataset
 from crispy_fishstick.database import DatabaseManager
 
 import os
@@ -56,6 +58,7 @@ class BaseMetric:
         self.config = config
         self.metric_config = metric_config
         self.params = {}
+        self.optional_datasets_path = None
 
         # skip the preprocessing steps if it has submetrics, as they will handle it themselves
         if len(self.submetrics) > 0:
@@ -151,6 +154,8 @@ class BaseMetric:
             )
             return
 
+        logging.info(f"Evaluating metric {self.__class__.__name__}")
+
         # assert that the preprocessing was done correctly
         # we assume that each model corresponds to a dataset
         assert len(self.models) == len(
@@ -207,6 +212,22 @@ class BaseMetric:
                     )
 
                 if not required_outputs_exist:
+                    # before running to train and test, we check if the dataset
+                    # requires caching, and if so, then we run to cache ahead of time
+                    # We do this because some filters (e.g., psupertime)
+                    # require the dataset to be preprocessed with a certain module
+                    # which may not exist in other models.
+                    if dataset.requires_caching():
+                        logging.info(
+                            f"Dataset {dataset} requires caching. Caching now before training and testing the model."
+                        )
+                        # we still load the test dataset for a couple of reasons:
+                        # 1. we want to store this into cache so the model can load it
+                        # 2. we still want the requires_caching however to avoid the extra load
+                        # before training, unless required. This also helps us avoid
+                        # creating an extra cache that is not necessary.
+                        _ = load_test_dataset(output_path)
+
                     model.train_and_test(
                         os.path.join(output_path, MODEL_CONFIG_FILENAME)
                     )
@@ -246,7 +267,7 @@ class BaseMetric:
                     **self._prep_kwargs_for_submetric_eval(output_path, dataset, model)
                 )
 
-    def _prep_kwargs_for_submetric_eval(self, output_path, dataset, model):
+    def _prep_kwargs_for_submetric_eval(self, output_path, dataset: BaseDataset, model):
         """
         Prepares the keyword arguments required for submetric evaluation.
 
@@ -405,6 +426,11 @@ class BaseMetric:
             group_config = metric_groups.get(self.default_dataset_group, {})
             default_dataset_tags = group_config.get("dataset_tags", None)
 
+        optional_datasets = []
+        if self.optional_datasets_path is not None:
+            with open(self.optional_datasets_path, "r") as f:
+                optional_datasets = yaml.safe_load(f)["datasets"]
+
         # now we check if datasets are specified in the config
         if not hasattr(self.config, "datasets") or len(self.config.datasets) == 0:
             # datasets are not specified, we use defaults for the metric group when present,
@@ -420,12 +446,14 @@ class BaseMetric:
         resolved_datasets = []
         for dataset in requested_datasets:
             if "tag" in dataset:
+                # we need to find the matching dataset from the default datasets or optional datasets
+                to_match = default_datasets + optional_datasets
                 matching_datasets = [
-                    d for d in default_datasets if d.get("tag", None) == dataset["tag"]
+                    d for d in to_match if d.get("tag", None) == dataset["tag"]
                 ]
                 assert (
                     len(matching_datasets) == 1
-                ), f"Dataset with tag {dataset['tag']} not found or multiple found in default datasets."
+                ), f"Dataset with tag {dataset['tag']} not found or multiple found in default or optional datasets."
                 dataset_def = matching_datasets[0]
             else:
                 dataset_def = dataset
@@ -504,7 +532,7 @@ class BaseMetric:
         ), "Mismatch in number of datasets and dataset filter builders."
 
         # 3) finally, with the dataset filters built, we create all the filters that we need
-        self.datasets = []
+        self.datasets: list[BaseDataset] = []
         for dataset, builders in zip(
             dataset_for_metric, self.dataset_filters_builders_list
         ):
