@@ -2,7 +2,14 @@
 Gene expression prediction metrics.
 """
 from crispy_fishstick.metrics.base import BaseMetric
-from crispy_fishstick.shared.dataset.registry import MaDataset
+from crispy_fishstick.shared.dataset.registry import (
+    MaDataset,
+    OlaniruDataset,
+    MaOlaniruDataset,
+    ZebrafishDataset,
+    DrosophilaDataset,
+    MEFDataset,
+)
 
 
 import json
@@ -14,6 +21,11 @@ class GexPredictionMetrics(BaseMetric):
         # ** NOTE: must define the following two attributes, though each subclass **
         self.supported_datasets = [
             MaDataset.__name__,
+            OlaniruDataset.__name__,
+            MaOlaniruDataset.__name__,
+            ZebrafishDataset.__name__,
+            DrosophilaDataset.__name__,
+            MEFDataset.__name__,
         ]
 
         self.default_dataset_group = "gex_prediction"
