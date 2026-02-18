@@ -21,9 +21,11 @@ class MaOlaniruDataset(BaseDataset):
                 "timepoint": ObservationColumns.TIMEPOINT.value,
             }
         )
+        self.data.obs[ObservationColumns.CELL_TYPE.value] = "unknown"
         print(" Ma + Olaniru et al. dataset loaded successfully.")
 
         print(
             f"Timepoints: {self.data.obs[ObservationColumns.TIMEPOINT.value].unique()}"
         )
         print("No celltypes available for this dataset as of yet.")
+        print("Assigned dummy cell type: unknown")
