@@ -467,10 +467,12 @@ class BaseTrajectoryInferMethod:
             (timepoints < timepoints.max()) & (timepoints != timepoints.min())
         )[0]
         cell_types = np.array(next_cell_types)[cell_type_valid_timepoints]
-        cell_types = np.concatenate([start_cell_type, cell_types])
+        cell_types = np.concatenate([start_cell_type, cell_types]).tolist()
 
         next_cell_type_valid_timepoints = np.where(timepoints > timepoints.min())[0]
-        next_cell_types = np.array(next_cell_types)[next_cell_type_valid_timepoints]
+        next_cell_types = np.array(next_cell_types)[
+            next_cell_type_valid_timepoints
+        ].tolist()
         cell_tps = timepoints[next_cell_type_valid_timepoints]
         return cell_types, next_cell_types, cell_tps
 
