@@ -67,7 +67,7 @@ class GraphVisualization(GraphSimMetric):
 
         return str(
             (
-                os.path.join(self.traj_dir, "reference_graph.png"),
+                ref_graph_output + ".png",
                 os.path.join(self.traj_dir, "predicted_graph.png"),
                 os.path.join(self.traj_dir, "predicted_unweighted_graph.png"),
             )

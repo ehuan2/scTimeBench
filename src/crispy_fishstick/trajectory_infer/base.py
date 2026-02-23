@@ -28,7 +28,6 @@ INFERRED_TRAJ_DIR = "trajectory_infer"
 INFERRED_TRAJ_FILE = "inferred_trajectory.json"
 TRAJ_CONFIG_FILE = "traj_config.json"
 NEXT_TP_PROBS_FILE = "next_timepoint_probs.npy"
-NEXT_TP_INDICES_FILE = "next_timepoint_indices.npy"
 IDX_TO_CELLTYPE_FILE = "index_to_cell_type.json"
 INFERRED_TRAJ_PER_TP_FILE = "inferred_trajectory_per_tp.json"
 
@@ -125,10 +124,7 @@ class BaseTrajectoryInferMethod:
             timepoints = next_tp_gex_anndata.obs[ObservationColumns.TIMEPOINT.value]
             # we should be predicting on every single timepoint
             # the starting timepoint as well
-            next_tp_gex = next_tp_gex_anndata.X.toarray()
-            # however, the valid timepoints are the ones that are greater than the minimum
-            valid_timepoints = np.where(timepoints > timepoints.min())[0]
-            return (next_tp_gex, valid_timepoints)
+            return next_tp_gex_anndata.X.toarray()
 
         timepoints = test_ann_data.obs[ObservationColumns.TIMEPOINT.value]
         valid_timepoints = np.where(timepoints < timepoints.max())[0]
@@ -137,12 +133,12 @@ class BaseTrajectoryInferMethod:
             next_tp_gex = load_output_file(
                 output_path, RequiredOutputFiles.NEXT_TIMEPOINT_GENE_EXPRESSION
             )
-            return (next_tp_gex[valid_timepoints], valid_timepoints)
+            return next_tp_gex[valid_timepoints]
         else:
             next_tp_embed = load_output_file(
                 output_path, RequiredOutputFiles.NEXT_TIMEPOINT_EMBEDDING
             )
-            return (next_tp_embed[valid_timepoints], valid_timepoints)
+            return next_tp_embed[valid_timepoints]
 
     def _get_cur_tp_tensors(self, output_path, test_ann_data):
         """
@@ -279,24 +275,18 @@ class BaseTrajectoryInferMethod:
         )
 
         # get the embeddings and timepoints
-        next_timepoint_embeddings, indices = self._get_next_tp_tensors(
+        next_timepoint_embeddings = self._get_next_tp_tensors(
             output_path, test_ann_data
         )
 
         next_tp_probs_path = os.path.join(traj_infer_path, NEXT_TP_PROBS_FILE)
-        next_tp_idxs_path = os.path.join(traj_infer_path, NEXT_TP_INDICES_FILE)
         idx_to_celltype_path = os.path.join(traj_infer_path, IDX_TO_CELLTYPE_FILE)
 
         # cache the result of the prediction for faster access later
-        if (
-            os.path.exists(next_tp_probs_path)
-            and os.path.exists(next_tp_idxs_path)
-            and os.path.exists(idx_to_celltype_path)
-        ):
+        if os.path.exists(next_tp_probs_path) and os.path.exists(idx_to_celltype_path):
             logging.debug("Loading cached next timepoint probabilities from disk.")
             return (
                 np.load(next_tp_probs_path),
-                np.load(next_tp_idxs_path),
                 json.load(open(idx_to_celltype_path)),
             )
 
@@ -304,11 +294,10 @@ class BaseTrajectoryInferMethod:
             next_timepoint_embeddings
         )
         np.save(next_tp_probs_path, next_tp_embed_probs)
-        np.save(next_tp_idxs_path, indices)
         with open(idx_to_celltype_path, "w") as f:
             json.dump(idx_to_cell_types, f)
 
-        return next_tp_embed_probs, indices, idx_to_cell_types
+        return next_tp_embed_probs, idx_to_cell_types
 
     @final
     def infer_trajectory(self, output_path, per_tp=False):
@@ -448,7 +437,7 @@ class BaseTrajectoryInferMethod:
             f"Inferring trajectory using trajectory inference model: {self.__class__.__name__}"
         )
         # then we run the predict next timepoint to get the embeddings
-        next_tp_embed_probs, _, idx_to_cell_types = self.predict_next_tp(
+        next_tp_embed_probs, idx_to_cell_types = self.predict_next_tp(
             output_path, test_ann_data, traj_infer_path
         )
         next_cell_types = [

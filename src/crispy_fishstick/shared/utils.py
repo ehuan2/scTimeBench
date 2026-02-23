@@ -17,7 +17,7 @@ from crispy_fishstick.shared.constants import (
 DATASET_CACHE_LIMIT = 3  # max number of datasets to cache in memory
 DATASET_IN_MEM_CACHE = {}
 
-OUTPUT_FILE_CACHE_limit = 3  # max number of output files to cache in memory
+OUTPUT_FILE_CACHE_LIMIT = 3  # max number of output files to cache in memory
 OUTPUT_FILE_CACHE = {}
 
 
@@ -111,7 +111,7 @@ def load_output_file(output_path, required_output: RequiredOutputFiles):
         raise ValueError(f"Unknown file type: {required_output.value}")
 
     # Cache the output file if we haven't exceeded the limit
-    if len(OUTPUT_FILE_CACHE) >= OUTPUT_FILE_CACHE_limit:
+    if len(OUTPUT_FILE_CACHE) >= OUTPUT_FILE_CACHE_LIMIT:
         # Remove an arbitrary item (not the most efficient, but simple)
         OUTPUT_FILE_CACHE.pop(next(iter(OUTPUT_FILE_CACHE)))
 

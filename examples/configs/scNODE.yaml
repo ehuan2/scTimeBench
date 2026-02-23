@@ -1,13 +1,13 @@
 datasets:
   - tag: defaultGarciaAlonso
-  - tag: defaultGarciaAlonsoPseudotimeEvenCells
+  # - tag: defaultGarciaAlonsoPseudotimeEvenCells
 
 model:
   name: scNODE
   train_and_test_script: ./models/scNODE/train_and_test.sh
 
 metrics:
-  - name: StackedBarPlot
-    from_tp_zero: true
+  # - name: StackedBarPlot
+  #   from_tp_zero: true
   - name: StackedBarPlot
     from_tp_zero: false

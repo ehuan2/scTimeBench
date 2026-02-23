@@ -34,7 +34,7 @@ class GraphSimMetric(OntologyBasedMetrics):
         traj_infer_config = self.metric_config.get("trajectory_infer_model", {})
 
         assert (
-            not hasattr(traj_infer_config, "from_tp_zero")
+            "from_tp_zero" not in traj_infer_config
             or traj_infer_config["from_tp_zero"] == self.params["from_tp_zero"]
         ), "from_tp_zero in trajectory inference config must either not be defined, or match from_tp_zero in metric config."
         traj_infer_config["from_tp_zero"] = self.params["from_tp_zero"]
@@ -61,7 +61,7 @@ class GraphSimMetric(OntologyBasedMetrics):
                 ]
             )
         else:
-            assert self.params["from_tp_zero"] == False, (
+            assert not self.params["from_tp_zero"], (
                 "from_tp_zero can only be True if the "
                 "trajectory inference model uses gene expression."
             )
