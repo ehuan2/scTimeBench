@@ -1,8 +1,8 @@
 datasets:
   - tag: defaultGarciaAlonso
-  - tag: defaultGarciaAlonsoPseudotimeEvenCells
-  - tag: defaultSuo
-  - tag: defaultSuoPseudotimeEvenCells
+  # - tag: defaultGarciaAlonsoPseudotimeEvenCells
+  # - tag: defaultSuo
+  # - tag: defaultSuoPseudotimeEvenCells
 
 model:
   name: scNODE
@@ -10,6 +10,3 @@ model:
 
 metrics:
   - name: GraphSimMetric
-    from_tp_zero: true
-  - name: GraphSimMetric
-    from_tp_zero: false

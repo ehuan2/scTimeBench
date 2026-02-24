@@ -1,7 +1,7 @@
 from crispy_fishstick.metrics.ontology_based.graph_sim.base import (
     GraphSimMetric,
     AdjacencyMatrixType,
-    CELL_TYPE_TO_ID_KEY,
+    ThresholdCriteria,
 )
 from crispy_fishstick.shared.utils import load_test_dataset
 from crispy_fishstick.shared.constants import ObservationColumns
@@ -10,7 +10,7 @@ import logging
 
 
 class GraphVisualization(GraphSimMetric):
-    def _graph_sim_eval(self, graph_pred, graph_ref):
+    def _graph_sim_eval(self, graph_pred, graph_ref, criteria):
         """
         This is a special metric that uses graphviz to generate visualizations of the trajectory
 
@@ -43,9 +43,10 @@ class GraphVisualization(GraphSimMetric):
             logging.info(f"Graph visualization saved to {output_path}.png")
 
         # take the reverse dictionary
-        cell_id_to_type = {v: k for k, v in graph_ref[CELL_TYPE_TO_ID_KEY].items()}
+        cell_id_to_type = {v: k for k, v in self.cell_type_to_id.items()}
 
-        ref_graph_output = os.path.join(self.dataset_dir, "reference_graph")
+        suffix = "all_paths" if criteria == ThresholdCriteria.ALL_PATHS.value else ""
+        ref_graph_output = os.path.join(self.dataset_dir, f"reference_graph_{suffix}")
 
         if not os.path.exists(ref_graph_output + ".png"):
             build_graph_image(
@@ -56,26 +57,26 @@ class GraphVisualization(GraphSimMetric):
         build_graph_image(
             graph_pred[AdjacencyMatrixType.WEIGHTED],
             cell_id_to_type,
-            os.path.join(self.traj_dir, "predicted_graph"),
+            os.path.join(self.traj_dir, f"predicted_graph_{suffix}"),
             is_weighted=True,
         )
         build_graph_image(
             graph_pred[AdjacencyMatrixType.UNWEIGHTED],
             cell_id_to_type,
-            os.path.join(self.traj_dir, "predicted_unweighted_graph"),
+            os.path.join(self.traj_dir, f"predicted_unweighted_graph_{suffix}"),
         )
 
         return str(
             (
                 ref_graph_output + ".png",
-                os.path.join(self.traj_dir, "predicted_graph.png"),
-                os.path.join(self.traj_dir, "predicted_unweighted_graph.png"),
+                os.path.join(self.traj_dir, f"predicted_graph_{suffix}.png"),
+                os.path.join(self.traj_dir, f"predicted_unweighted_graph_{suffix}.png"),
             )
         )  # return the path of the images to store in db
 
 
 class StackedBarPlot(GraphSimMetric):
-    def _graph_sim_eval(self, graph_pred, graph_ref):
+    def _graph_sim_eval(self, graph_pred, graph_ref, criteria):
         """
         This is a special metric that generates stacked bar plots for the predicted trajectory.
 

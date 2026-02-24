@@ -1,13 +1,12 @@
 from crispy_fishstick.metrics.ontology_based.graph_sim.base import (
     GraphSimMetric,
     AdjacencyMatrixType,
+    ThresholdCriteria,
 )
-from crispy_fishstick.metrics.ontology_based.graph_sim.utils import floyd_warshall
 from sklearn.metrics import classification_report, roc_auc_score
 
 import matplotlib.pyplot as plt
 from sklearn.metrics import RocCurveDisplay
-import numpy as np
 import logging
 import json
 
@@ -61,7 +60,7 @@ def get_threshold_roc(graph_weighted_pred_adj, graph_ref_adj, title, output_file
 
 
 class GraphClassificationReport(GraphSimMetric):
-    def _graph_sim_eval(self, graph_pred, graph_ref):
+    def _graph_sim_eval(self, graph_pred, graph_ref, criteria):
         """
         The graph similarity metrics we will be using will take in
         """
@@ -79,69 +78,8 @@ class GraphClassificationReport(GraphSimMetric):
                 "auc_roc": get_threshold_roc(
                     graph_weighted_pred_adj,
                     graph_ref_adj,
-                    title=f"Threshold ROC Curve of {self.config.model['name']} on {self.dataset_name}",
+                    title=f"Threshold ROC Curve of {self.config.model['name']} on {self.dataset_name}{'(All Paths)' if criteria == ThresholdCriteria.ALL_PATHS.value else ''}",
                     output_file=self.traj_dir + "/roc_curve.png",
                 ),
             }
         )
-
-
-class GraphClassificationReportAllPaths(GraphSimMetric):
-    def _graph_sim_eval(self, graph_pred, graph_ref):
-        """
-        This metric calculates the confusion matrix metrics (accuracy, precision, recall, F1) not just on the direct edges in the predicted and reference graphs, but also on all paths between cell types. So if there is a path from A to B in the reference graph but not in the predicted graph, that would count as a false negative.
-        """
-        graph_weighted_pred_adj = graph_pred[AdjacencyMatrixType.WEIGHTED]
-        graph_ref_adj = graph_ref[AdjacencyMatrixType.UNWEIGHTED]
-
-        # we can use Floyd-Warshall to calculate the transitive closure of both graphs, which will give us all paths between cell types
-        # binarize the paths for this
-        graph_pred_paths = (floyd_warshall(graph_weighted_pred_adj) < np.inf).astype(
-            int
-        )
-        graph_ref_paths = (floyd_warshall(graph_ref_adj) < np.inf).astype(int)
-
-        graph_weighted_pred_paths = self._modified_floyd_warshall(
-            graph_weighted_pred_adj
-        )
-
-        logging.debug(f"Predicted paths (transitive closure):\n{graph_pred_paths}")
-        logging.debug(
-            f"Weighted predicted paths (modified Floyd-Warshall):\n{graph_weighted_pred_paths}"
-        )
-        logging.debug(f"Reference paths (transitive closure):\n{graph_ref_paths}")
-
-        return json.dumps(
-            {
-                **get_confusion_metrics(graph_pred_paths, graph_ref_paths),
-                "auc_roc": get_threshold_roc(
-                    graph_weighted_pred_paths,
-                    graph_ref_paths,
-                    title=f"All Paths Threshold ROC Curve of {self.config.model['name']} on {self.dataset_name}",
-                    output_file=self.traj_dir + "/all_paths_roc_curve.png",
-                ),
-            }
-        )
-
-    def _modified_floyd_warshall(self, adj_matrix):
-        """
-        A modified version of Floyd-Warshall that is meant to compute the maximum
-        minimum probability path between all pairs of nodes, rather than the shortest path.
-        This is useful for the area under threshold curve, where different thresholds
-        will affect the graph that we get out.
-
-        See: https://en.wikipedia.org/wiki/Widest_path_problem for more information.
-        """
-        n = adj_matrix.shape[0]
-        prob_matrix = adj_matrix.copy()
-
-        for k in range(n):
-            for i in range(n):
-                for j in range(n):
-                    # if the prob between i and k or k and j is 0, then it won't create a path
-                    # otherwise, we take the max of the existing probability and the min of the two new paths through k
-                    prob_matrix[i, j] = max(
-                        prob_matrix[i, j], min(prob_matrix[i, k], prob_matrix[k, j])
-                    )
-
-        return prob_matrix

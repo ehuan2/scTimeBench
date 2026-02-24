@@ -8,7 +8,7 @@ import logging
 
 
 class JaccardSimilarity(GraphSimMetric):
-    def _graph_sim_eval(self, graph_pred, graph_ref):
+    def _graph_sim_eval(self, graph_pred, graph_ref, criteria):
         """
         Calculate Jaccard similarity between predicted and reference graphs.
         Jaccard similarity = |intersection| / |union|

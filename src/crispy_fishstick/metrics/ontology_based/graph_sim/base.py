@@ -2,6 +2,10 @@
 Graph Similarity Metric Base Class
 """
 from crispy_fishstick.metrics.ontology_based.base import OntologyBasedMetrics
+from crispy_fishstick.metrics.ontology_based.graph_sim.utils import (
+    floyd_warshall,
+    modified_floyd_warshall,
+)
 from crispy_fishstick.shared.constants import RequiredOutputFiles
 from crispy_fishstick.shared.helpers import parse_cell_lineage
 from crispy_fishstick.shared.dataset.filters.lineage import LineageDatasetFilter
@@ -9,10 +13,13 @@ from crispy_fishstick.shared.dataset.base import BaseDataset
 from crispy_fishstick.shared.dataset.filters.pseudotime_filter import (
     BasePseudotimeFilter,
 )
+from enum import Enum
+from sklearn.metrics import roc_curve
 from crispy_fishstick.trajectory_infer.base import TrajectoryInferenceMethodFactory
 import numpy as np
 import logging
 import os
+import json
 
 
 class AdjacencyMatrixType:
@@ -20,12 +27,19 @@ class AdjacencyMatrixType:
     WEIGHTED = "weighted_adjacency_matrix"
 
 
-CELL_TYPE_TO_ID_KEY = "cell_type_to_id"
+class ThresholdCriteria(Enum):
+    ALL_PATHS = "all_paths"  # consider after the Floyd-Warshall
+    SIMPLE = "simple"  # just consider the adjacency matrix entries
 
 
 class GraphSimMetric(OntologyBasedMetrics):
     def _defaults(self):
         return {
+            "threshold_criterion": [
+                ThresholdCriteria.ALL_PATHS.value,
+                ThresholdCriteria.SIMPLE.value,
+            ],
+            "auto_threshold": True,
             "edge_threshold": 0.1,
             "from_tp_zero": False,
         }
@@ -126,15 +140,43 @@ class GraphSimMetric(OntologyBasedMetrics):
                 adjacency_matrix[source_id, target_id] = 1.0
 
         logging.debug(f"Reference graph adjacency matrix:\n{adjacency_matrix}")
-        return {
-            AdjacencyMatrixType.UNWEIGHTED: adjacency_matrix,
-            CELL_TYPE_TO_ID_KEY: cell_type_to_id,
-        }
+        return adjacency_matrix, cell_type_to_id
+
+    def _build_pred_graph_with_threshold(self, weighted_adjacency_matrix, threshold):
+        """
+        Returns a binarized adjacency matrix based on the provided threshold.
+        """
+        num_cell_types = weighted_adjacency_matrix.shape[0]
+        adjacency_matrix = np.zeros((num_cell_types, num_cell_types), dtype=np.float32)
+        # now we can iterate over the predicted trajectory to fill in the adjacency matrix
+        for source_id in range(num_cell_types):
+            for target_id in range(num_cell_types):
+                prob = weighted_adjacency_matrix[source_id, target_id]
+                # avoid self-loops and any edges below the threshold
+                if source_id != target_id and prob >= threshold:
+                    adjacency_matrix[source_id, target_id] = 1.0
+
+        return adjacency_matrix
 
     def _build_pred_graph(self, output_path, cell_type_to_id):
-        """
-        Builds the predicted graph structure based on the output.
-        """
+        # we need to check if they provided a predicted graph, then we ignore the trajectory
+        # inference step, and directly use the provided predicted graph for evaluation.
+        if RequiredOutputFiles.PRED_GRAPH.value in os.listdir(output_path):
+            logging.debug(
+                "Found predicted graph in output, skipping trajectory inference step."
+            )
+            pred_graph_path = os.path.join(
+                output_path, RequiredOutputFiles.PRED_GRAPH.value
+            )
+            weighted_adjacency_matrix = np.load(pred_graph_path)
+            # no special trajectory dir needed here
+            self.traj_dir = output_path
+            return weighted_adjacency_matrix
+
+        # otherwise, we need to go through the trajectory inference step
+        traj_dir, _ = self.trajectory_infer_model._get_traj_infer_path(output_path)
+        self.traj_dir = traj_dir
+
         # first let's ensure that it's in the right format
         # we expect it to have the true embeddings and predicted embeddings
         # for timepoints (1, ..., n) in separate output files
@@ -148,7 +190,6 @@ class GraphSimMetric(OntologyBasedMetrics):
         weighted_adjacency_matrix = np.zeros(
             (num_cell_types, num_cell_types), dtype=np.float32
         )
-        adjacency_matrix = np.zeros((num_cell_types, num_cell_types), dtype=np.float32)
 
         # now we can iterate over the predicted trajectory to fill in the adjacency matrix
         for source_cell_type, target_distribution in pred_trajectory.items():
@@ -158,33 +199,107 @@ class GraphSimMetric(OntologyBasedMetrics):
                 target_id = cell_type_to_id[target_cell_type]
                 weighted_adjacency_matrix[source_id, target_id] = prob
 
-                # avoid self-loops and any edges below the threshold
-                if source_id != target_id and prob >= self.edge_threshold:
-                    adjacency_matrix[source_id, target_id] = 1.0
+        return weighted_adjacency_matrix
+
+    def _prepare_final_graphs(
+        self, weighted_adjacency_matrix, unweighted_ref, cell_type_to_id
+    ):
+        """
+        Prepares the final predicted graphs based on the weighted adjacency matrix
+        and the reference unweighted adjacency matrix, using different thresholding
+        criteria if specified.
+        """
+        # now we find the best threshold if it's automatically found, otherwise
+        # we use the provided one
+        pred_graphs = []
+        ref_graphs = []
+        thresholds = []
+        criterions = []
+
+        for criteria in self.params["threshold_criterion"]:
+            # first get the threshold that we want
+            if self.auto_threshold:
+                # TODO: this is not expensive because we have relatively small n, but in the future
+                # TODO: it would be good to cache the result from these threshold calculations!
+                # now, using the AUROC curve, we calculate the best threshold
+                # using Youden's J statistic.
+                if criteria == ThresholdCriteria.ALL_PATHS.value:
+                    pred_paths = modified_floyd_warshall(weighted_adjacency_matrix)
+                    ref_paths = (floyd_warshall(unweighted_ref) < np.inf).astype(int)
+                    threshold = self._calculate_best_threshold(pred_paths, ref_paths)
+                elif criteria == ThresholdCriteria.SIMPLE.value:
+                    threshold = self._calculate_best_threshold(
+                        weighted_adjacency_matrix, unweighted_ref
+                    )
+                else:
+                    raise ValueError(f"Invalid threshold criterion: {criteria}")
+            else:
+                threshold = self.edge_threshold
+
+            # then build the predicted and reference graphs based on this threshold
+            pred_graph = self._build_pred_graph_with_threshold(
+                weighted_adjacency_matrix, threshold
+            )
+            if criteria == ThresholdCriteria.ALL_PATHS.value:
+                logging.debug(f"Using ALL_PATHS criterion with threshold: {threshold}")
+                pred_graph = (floyd_warshall(pred_graph) < np.inf).astype(int)
+                ref_graph = (floyd_warshall(unweighted_ref) < np.inf).astype(int)
+            elif criteria == ThresholdCriteria.SIMPLE.value:
+                logging.debug(f"Using SIMPLE criterion with threshold: {threshold}")
+                ref_graph = unweighted_ref
+
+            pred_graphs.append(
+                {
+                    AdjacencyMatrixType.UNWEIGHTED: pred_graph,
+                    AdjacencyMatrixType.WEIGHTED: weighted_adjacency_matrix,
+                }
+            )
+            ref_graphs.append(
+                {
+                    AdjacencyMatrixType.UNWEIGHTED: ref_graph,
+                }
+            )
+            thresholds.append(threshold)
+            criterions.append(criteria)
 
         # let's print out what the predicted trajectory (with thresholding) looks like
         # so we need to map the adjacency matrix back to cell types
-        pred_lineage = {}
-        ids_to_cell_types = {v: k for k, v in cell_type_to_id.items()}
+        if self.config.log_level == "DEBUG":
+            pred_lineage = {}
+            ids_to_cell_types = {v: k for k, v in cell_type_to_id.items()}
+            for pred_graph in pred_graphs:
+                for i in range(pred_graph[AdjacencyMatrixType.UNWEIGHTED].shape[0]):
+                    for j in range(pred_graph[AdjacencyMatrixType.UNWEIGHTED].shape[1]):
+                        if pred_graph[AdjacencyMatrixType.UNWEIGHTED][i, j] == 1.0:
+                            source_cell_type = ids_to_cell_types[i]
+                            target_cell_type = ids_to_cell_types[j]
+                            if source_cell_type not in pred_lineage:
+                                pred_lineage[source_cell_type] = []
+                            pred_lineage[source_cell_type].append(target_cell_type)
+                logging.debug(
+                    f"Predicted cell lineage (after thresholding): {pred_lineage}"
+                )
 
-        for i in range(adjacency_matrix.shape[0]):
-            for j in range(adjacency_matrix.shape[1]):
-                if adjacency_matrix[i, j] == 1.0:
-                    source_cell_type = ids_to_cell_types[i]
-                    target_cell_type = ids_to_cell_types[j]
-                    if source_cell_type not in pred_lineage:
-                        pred_lineage[source_cell_type] = []
-                    pred_lineage[source_cell_type].append(target_cell_type)
+        return pred_graphs, ref_graphs, thresholds, criterions
 
-        logging.debug(f"Predicted cell lineage (after thresholding): {pred_lineage}")
+    def _calculate_best_threshold(self, pred, ref):
+        """
+        Based on the number of true positives and false negatives,
+        chooses the best threshold that maximizes Youden's J statistic (sensitivity + specificity - 1).
 
-        return {
-            AdjacencyMatrixType.WEIGHTED: weighted_adjacency_matrix,
-            AdjacencyMatrixType.UNWEIGHTED: adjacency_matrix,
-        }
+        However, we want to choose it such that it is not at (1, 1) because that is trivial.
+        In this case, we select the best threshold besides this one.
+        """
+        logging.debug(f"Calculating threshold for {ref}, {pred}")
+        fpr, tpr, thresholds = roc_curve(ref.flatten(), pred.flatten())
+        j_scores = tpr - fpr
+        best_idx = j_scores.argmax()
+        logging.debug(
+            f"Selected best threshold at (fpr, tpr): ({fpr[best_idx]}, {tpr[best_idx]}) with threshold: {thresholds[best_idx]}"
+        )
+        return thresholds[best_idx]
 
     def _prep_kwargs_for_submetric_eval(self, output_path, dataset, model):
-        graph_ref = self._build_ref_graph(dataset)
         self.output_path = output_path
         self.dataset_dir = dataset.get_dataset_dir()
         self.dataset_name = dataset.get_name()
@@ -194,60 +309,54 @@ class GraphSimMetric(OntologyBasedMetrics):
                 self.time_label = dataset_filter.label()
                 break
 
-        # we need to check if they provided a predicted graph, then we ignore the trajectory
-        # inference step, and directly use the provided predicted graph for evaluation.
-        if RequiredOutputFiles.PRED_GRAPH.value in os.listdir(output_path):
-            logging.debug(
-                "Found predicted graph in output, skipping trajectory inference step."
-            )
-            pred_graph_path = os.path.join(
-                output_path, RequiredOutputFiles.PRED_GRAPH.value
-            )
-            weighted_adjacency_matrix = np.load(pred_graph_path)
-            unweighted_adjacency_matrix = (
-                weighted_adjacency_matrix > self.edge_threshold
-            ).astype(np.float32)
+        # first build the original reference and predicted graphs
+        graph_ref, cell_type_to_id = self._build_ref_graph(dataset)
+        self.cell_type_to_id = cell_type_to_id
+        weighted_adjacency_matrix = self._build_pred_graph(
+            output_path, self.cell_type_to_id
+        )
 
-            # also get rid of the diagonal entries (self-loops) for the unweighted adjacency matrix
-            for i in range(unweighted_adjacency_matrix.shape[0]):
-                unweighted_adjacency_matrix[i, i] = 0.0
-
-            graph_pred = {
-                AdjacencyMatrixType.WEIGHTED: weighted_adjacency_matrix,
-                AdjacencyMatrixType.UNWEIGHTED: unweighted_adjacency_matrix,
-            }
-
-            # no special trajectory dir needed here
-            self.traj_dir = output_path
-
-            return {
-                "graph_ref": graph_ref,
-                "graph_pred": graph_pred,
-                "model": model,
-            }
-
-        traj_dir, _ = self.trajectory_infer_model._get_traj_infer_path(output_path)
-        self.traj_dir = traj_dir
+        # then based on the threshold criteria, we build both the all-paths/simple
+        # and with original thresholds or not
+        graph_preds, graph_refs, thresholds, criterions = self._prepare_final_graphs(
+            weighted_adjacency_matrix, graph_ref, self.cell_type_to_id
+        )
         return {
-            # build the reference graph
-            "graph_ref": graph_ref,
-            # build the predicted graph
-            "graph_pred": self._build_pred_graph(
-                output_path, graph_ref[CELL_TYPE_TO_ID_KEY]
-            ),
+            "graphs": [
+                {
+                    "graph_preds": pred_graph,
+                    "graph_refs": ref_graph,
+                    "threshold": threshold,
+                    "criterion": criterion,
+                }
+                for (pred_graph, ref_graph, threshold, criterion) in zip(
+                    graph_preds, graph_refs, thresholds, criterions
+                )
+            ],
             "model": model,
         }
 
-    def _submetric_eval(self, graph_pred, graph_ref, model):
+    def _submetric_eval(self, graphs, model):
         """
         Wrapper function to call the graph similarity evaluation, and handle database
         logging.
         """
-        eval = self._graph_sim_eval(graph_pred, graph_ref)
-        if eval is not None:
-            self.db_manager.insert_eval(
-                model, self.__class__.__name__, self._get_param_encoding(), eval
-            )
+        # graph pred is made up of an array of adjacency matrices
+        for graph_dict in graphs:
+            graph_pred = graph_dict["graph_preds"]
+            graph_ref = graph_dict["graph_refs"]
+            eval = self._graph_sim_eval(graph_pred, graph_ref, graph_dict["criterion"])
+            if eval is not None:
+                eval = json.dumps(
+                    {
+                        "eval": eval,
+                        "threshold": str(graph_dict.get("threshold")),
+                        "criteria": graph_dict.get("criterion"),
+                    }
+                )
+                self.db_manager.insert_eval(
+                    model, self.__class__.__name__, self._get_param_encoding(), eval
+                )
 
-    def _graph_sim_eval(self, graph_pred, graph_ref):
+    def _graph_sim_eval(self, graph_pred, graph_ref, criteria):
         raise NotImplementedError("Subclasses should implement this method.")

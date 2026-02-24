@@ -10,7 +10,7 @@ import logging
 
 # TODO: add some unit tests for this metric!
 class AverageShortestPathDiff(GraphSimMetric):
-    def _graph_sim_eval(self, graph_pred, graph_ref):
+    def _graph_sim_eval(self, graph_pred, graph_ref, criteria):
         """
         Calculate average shortest path difference between predicted and reference graphs.
 

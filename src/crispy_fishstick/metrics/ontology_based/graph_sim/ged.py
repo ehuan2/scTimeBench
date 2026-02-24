@@ -15,7 +15,7 @@ class GraphEditDistance(GraphSimMetric):
             "norm": None,  # by default we use the Frobenius norm
         }
 
-    def _graph_sim_eval(self, graph_pred, graph_ref):
+    def _graph_sim_eval(self, graph_pred, graph_ref, criteria):
         """
         The graph similarity metrics we will be using will take in
         """
