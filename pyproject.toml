@@ -28,12 +28,8 @@ benchmark = [
     "numpy",
     "geomloss",
     "pykeops",
-    "scanpy[leiden]"
-]
-graphviz = [
-    "graphviz"
-]
-celltypist = [
+    "scanpy[leiden]",
+    "graphviz",
     "celltypist"
 ]
 pypsupertime = [ "pypsupertime" ]

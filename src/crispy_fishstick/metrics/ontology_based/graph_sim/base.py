@@ -248,6 +248,10 @@ class GraphSimMetric(OntologyBasedMetrics):
                 logging.debug(f"Using SIMPLE criterion with threshold: {threshold}")
                 ref_graph = unweighted_ref
 
+            logging.debug(f"Threshold: {threshold}")
+            logging.debug(f"Predicted Unweighted: {pred_graph}")
+            logging.debug(f"Predicted Weighted: {weighted_adjacency_matrix}")
+
             pred_graphs.append(
                 {
                     AdjacencyMatrixType.UNWEIGHTED: pred_graph,
@@ -345,6 +349,7 @@ class GraphSimMetric(OntologyBasedMetrics):
         for graph_dict in graphs:
             graph_pred = graph_dict["graph_preds"]
             graph_ref = graph_dict["graph_refs"]
+            self.threshold = graph_dict["threshold"]
             eval = self._graph_sim_eval(graph_pred, graph_ref, graph_dict["criterion"])
             if eval is not None:
                 eval = json.dumps(

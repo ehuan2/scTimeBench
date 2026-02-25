@@ -140,7 +140,7 @@ class BaseModel:
             else:
                 raise ValueError(f"Unknown required output: {required_output}")
 
-            print(f"Saved {required_output.value} to {output_file}")
+            print(f"Saved {required_output.value} to {output_file}", flush=True)
 
     def generate_embedding(self, test_ann_data) -> np.ndarray:
         """

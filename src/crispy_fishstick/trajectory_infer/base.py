@@ -55,6 +55,8 @@ class BaseTrajectoryInferMethod:
             self.supports_gex() or self.model_classifier
         ), f"Trajectory inference method {self.__class__.__name__} does not support gene expression data."
 
+        self.verbose = False
+
     def __init_subclass__(cls):
         register_trajectory_inference_method(cls)
 
@@ -278,11 +280,6 @@ class BaseTrajectoryInferMethod:
             f"Predicting next timepoint with method: {self.__class__.__name__} and config: {self.traj_config}"
         )
 
-        # get the embeddings and timepoints
-        next_timepoint_embeddings = self._get_next_tp_tensors(
-            output_path, test_ann_data
-        )
-
         next_tp_probs_path = os.path.join(traj_infer_path, NEXT_TP_PROBS_FILE)
         idx_to_celltype_path = os.path.join(traj_infer_path, IDX_TO_CELLTYPE_FILE)
 
@@ -294,8 +291,9 @@ class BaseTrajectoryInferMethod:
                 json.load(open(idx_to_celltype_path)),
             )
 
+        # get the embeddings and timepoints
         next_tp_embed_probs, idx_to_cell_types = self._subclass_predict_probs(
-            next_timepoint_embeddings
+            self._get_next_tp_tensors(output_path, test_ann_data)
         )
         np.save(next_tp_probs_path, next_tp_embed_probs)
         with open(idx_to_celltype_path, "w") as f:
@@ -392,12 +390,6 @@ class BaseTrajectoryInferMethod:
         """
         Gets the next cell types for us to use in trajectory inference.
         """
-        # ** This block here gets the next cell type for us! **
-        next_celltype_path = os.path.join(
-            output_path, RequiredOutputFiles.NEXT_CELLTYPE.value
-        )
-
-        test_ann_data = load_test_dataset(output_path)
 
         def sequential_tps():
             """
@@ -414,6 +406,10 @@ class BaseTrajectoryInferMethod:
             ]
             return valid_timepoints, cell_tps, cell_types
 
+        # ** This block here gets the next cell type for us! **
+        next_celltype_path = os.path.join(
+            output_path, RequiredOutputFiles.NEXT_CELLTYPE.value
+        )
         # ** Note: if the NEXT_CELLTYPE file already exists, then use that instead (OT methods) **
         if os.path.exists(next_celltype_path):
             # this next block gets the next cell type for us, matching the same indices as valid_timepoints
@@ -436,25 +432,25 @@ class BaseTrajectoryInferMethod:
         # we need to do the train_only option here instead of calling _train directly
         # because it does some preprocessing we don't want to repeat
         # this trains a classifier on all the data points
-        self.train_and_predict(output_path, train_only=True)
+        if not self.verbose:
+            self.train_and_predict(output_path, train_only=True)
+        else:
+            (pred_probs, idx_to_cells), labels = self.train_and_predict(output_path)
+            # now let's measure the accuracy, f1 score
 
-        """
-        This commented out block is in case we want to evaluate the classifier.
-        Otherwise, we just train the classifier itself.
+            from sklearn.metrics import f1_score, classification_report
 
-        (pred_probs, idx_to_cells), labels = self.train_and_predict(output_path)
-        # now let's measure the accuracy, f1 score
-
-        from sklearn.metrics import f1_score, classification_report
-        pred_labels = [idx_to_cells[np.argmax(probs)] for probs in pred_probs]
-        f1 = f1_score(labels, pred_labels, average='weighted')
-        logging.debug(f"F1 score for next timepoint prediction: {f1}")
-        logging.debug(f"Classification report for next timepoint prediction:\n{classification_report(labels, pred_labels)}")
-        """
+            pred_labels = [idx_to_cells[np.argmax(probs)] for probs in pred_probs]
+            f1 = f1_score(labels, pred_labels, average="weighted")
+            logging.debug(f"F1 score for next timepoint prediction: {f1}")
+            logging.debug(
+                f"Classification report for next timepoint prediction:\n{classification_report(labels, pred_labels)}"
+            )
 
         logging.debug(
             f"Inferring trajectory using trajectory inference model: {self.__class__.__name__}"
         )
+        test_ann_data = load_test_dataset(output_path)
         # then we run the predict next timepoint to get the embeddings
         next_tp_embed_probs, idx_to_cell_types = self.predict_next_tp(
             output_path, test_ann_data, traj_infer_path
