@@ -239,7 +239,7 @@ class GraphSimMetric(OntologyBasedMetrics):
             # then build the predicted and reference graphs based on this threshold
             pred_graph = self._build_pred_graph_with_threshold(
                 weighted_adjacency_matrix, threshold
-            )
+            ).astype(int)
             if criteria == ThresholdCriteria.ALL_PATHS.value:
                 logging.debug(f"Using ALL_PATHS criterion with threshold: {threshold}")
                 pred_graph = (floyd_warshall(pred_graph) < np.inf).astype(int)
@@ -247,6 +247,11 @@ class GraphSimMetric(OntologyBasedMetrics):
             elif criteria == ThresholdCriteria.SIMPLE.value:
                 logging.debug(f"Using SIMPLE criterion with threshold: {threshold}")
                 ref_graph = unweighted_ref
+
+            logging.debug(f"Threshold: {threshold}")
+            logging.debug(f"Predicted Unweighted: {pred_graph}")
+            logging.debug(f"Predicted Weighted: {weighted_adjacency_matrix}")
+            logging.debug(f"Reference Graph: {ref_graph}")
 
             pred_graphs.append(
                 {
@@ -265,9 +270,9 @@ class GraphSimMetric(OntologyBasedMetrics):
         # let's print out what the predicted trajectory (with thresholding) looks like
         # so we need to map the adjacency matrix back to cell types
         if self.config.log_level == "DEBUG":
-            pred_lineage = {}
             ids_to_cell_types = {v: k for k, v in cell_type_to_id.items()}
             for pred_graph in pred_graphs:
+                pred_lineage = {}
                 for i in range(pred_graph[AdjacencyMatrixType.UNWEIGHTED].shape[0]):
                     for j in range(pred_graph[AdjacencyMatrixType.UNWEIGHTED].shape[1]):
                         if pred_graph[AdjacencyMatrixType.UNWEIGHTED][i, j] == 1.0:
@@ -345,6 +350,7 @@ class GraphSimMetric(OntologyBasedMetrics):
         for graph_dict in graphs:
             graph_pred = graph_dict["graph_preds"]
             graph_ref = graph_dict["graph_refs"]
+            self.threshold = graph_dict["threshold"]
             eval = self._graph_sim_eval(graph_pred, graph_ref, graph_dict["criterion"])
             if eval is not None:
                 eval = json.dumps(

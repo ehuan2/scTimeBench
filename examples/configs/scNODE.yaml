@@ -9,4 +9,12 @@ model:
   train_and_test_script: ./models/scNODE/train_and_test.sh
 
 metrics:
-  - name: GraphSimMetric
+  - name: GraphVisualization
+    # trajectory_infer_model:
+    #   name: Classifier
+    #   model_classifier: True
+  - name: StackedBarPlot
+    # using embeddings instead:
+    # trajectory_infer_model:
+    #   name: Classifier
+    #   model_classifier: True

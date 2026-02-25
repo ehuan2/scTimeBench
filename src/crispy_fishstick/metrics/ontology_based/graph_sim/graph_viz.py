@@ -21,7 +21,7 @@ class GraphVisualization(GraphSimMetric):
         def build_graph_image(
             adj_matrix, cell_id_to_type, output_path, is_weighted=False
         ):
-            dot = graphviz.Digraph(format="png")
+            dot = graphviz.Digraph(format="svg")
             num_nodes = adj_matrix.shape[0]
 
             # Add nodes with labels
@@ -32,45 +32,47 @@ class GraphVisualization(GraphSimMetric):
             # Add edges
             for i in range(num_nodes):
                 for j in range(num_nodes):
-                    if adj_matrix[i, j] < self._defaults()["edge_threshold"]:
+                    if is_weighted and adj_matrix[i, j] < self.threshold:
                         continue
+                    elif adj_matrix[i, j] == 0:
+                        continue
+
                     if is_weighted:
                         dot.edge(str(i), str(j), label=f"{adj_matrix[i, j]:.2f}")
                     else:
                         dot.edge(str(i), str(j))
 
             dot.render(output_path, cleanup=True)
-            logging.info(f"Graph visualization saved to {output_path}.png")
+            logging.info(f"Graph visualization saved to {output_path}.svg")
 
         # take the reverse dictionary
         cell_id_to_type = {v: k for k, v in self.cell_type_to_id.items()}
 
-        suffix = "all_paths" if criteria == ThresholdCriteria.ALL_PATHS.value else ""
-        ref_graph_output = os.path.join(self.dataset_dir, f"reference_graph_{suffix}")
+        suffix = "_all_paths" if criteria == ThresholdCriteria.ALL_PATHS.value else ""
+        ref_graph_output = os.path.join(self.dataset_dir, f"reference_graph{suffix}")
 
-        if not os.path.exists(ref_graph_output + ".png"):
-            build_graph_image(
-                graph_ref[AdjacencyMatrixType.UNWEIGHTED],
-                cell_id_to_type,
-                ref_graph_output,
-            )
+        build_graph_image(
+            graph_ref[AdjacencyMatrixType.UNWEIGHTED],
+            cell_id_to_type,
+            ref_graph_output,
+        )
         build_graph_image(
             graph_pred[AdjacencyMatrixType.WEIGHTED],
             cell_id_to_type,
-            os.path.join(self.traj_dir, f"predicted_graph_{suffix}"),
+            os.path.join(self.traj_dir, f"predicted_graph{suffix}"),
             is_weighted=True,
         )
         build_graph_image(
             graph_pred[AdjacencyMatrixType.UNWEIGHTED],
             cell_id_to_type,
-            os.path.join(self.traj_dir, f"predicted_unweighted_graph_{suffix}"),
+            os.path.join(self.traj_dir, f"predicted_unweighted_graph{suffix}"),
         )
 
         return str(
             (
-                ref_graph_output + ".png",
-                os.path.join(self.traj_dir, f"predicted_graph_{suffix}.png"),
-                os.path.join(self.traj_dir, f"predicted_unweighted_graph_{suffix}.png"),
+                ref_graph_output + ".svg",
+                os.path.join(self.traj_dir, f"predicted_graph{suffix}.svg"),
+                os.path.join(self.traj_dir, f"predicted_unweighted_graph{suffix}.svg"),
             )
         )  # return the path of the images to store in db
 
@@ -184,7 +186,7 @@ class StackedBarPlot(GraphSimMetric):
             plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left")
             plt.tight_layout()
 
-            plt.savefig(output_path)
+            plt.savefig(output_path, format="svg")
             plt.close()  # Close the figure to free memory
             logging.info(f"Stacked bar plot saved to {output_path}")
 
@@ -251,23 +253,26 @@ class StackedBarPlot(GraphSimMetric):
         logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
         ref_plot_output = os.path.join(
-            self.dataset_dir, "reference_stacked_bar_plot.png"
+            self.dataset_dir, "reference_stacked_bar_plot.svg"
         )
         if not os.path.exists(ref_plot_output):
             plot_stacked_bar(
                 source_df,
                 ref_plot_output,
-                f"True Cell Type Proportions Over {self.time_label} for {self.dataset_name}{'' if not self.params['from_tp_zero'] else ' (From Zero to End GEX)'}",
+                f"True Cell Type Proportions Over {self.time_label} for {self.dataset_name}",
             )
+        target_plot_path = os.path.join(self.traj_dir, "target_stacked_bar_plot.svg")
         plot_stacked_bar(
             target_df,
-            os.path.join(self.traj_dir, "target_stacked_bar_plot.png"),
-            f'Predicted Target Cell Type Proportions Over {self.time_label} for {self.config.model["name"]} on {self.dataset_name}{"" if not self.params["from_tp_zero"] else " (From Zero to End GEX)"}',
+            target_plot_path,
+            f'Predicted Target Cell Type Proportions Over {self.time_label} for {self.config.model["name"]} on {self.dataset_name} '
+            f'{"using GEX" if self.trajectory_infer_model.uses_gene_expr() else "using embeddings"}'
+            f'{"" if not self.params["from_tp_zero"] else " (From Zero to End GEX)"}',
         )
 
         return str(
             (
                 ref_plot_output,
-                os.path.join(self.traj_dir, "target_stacked_bar_plot.png"),
+                target_plot_path,
             )
         )  # return the path of the images to store in db
