@@ -239,7 +239,7 @@ class GraphSimMetric(OntologyBasedMetrics):
             # then build the predicted and reference graphs based on this threshold
             pred_graph = self._build_pred_graph_with_threshold(
                 weighted_adjacency_matrix, threshold
-            )
+            ).astype(int)
             if criteria == ThresholdCriteria.ALL_PATHS.value:
                 logging.debug(f"Using ALL_PATHS criterion with threshold: {threshold}")
                 pred_graph = (floyd_warshall(pred_graph) < np.inf).astype(int)
@@ -251,6 +251,7 @@ class GraphSimMetric(OntologyBasedMetrics):
             logging.debug(f"Threshold: {threshold}")
             logging.debug(f"Predicted Unweighted: {pred_graph}")
             logging.debug(f"Predicted Weighted: {weighted_adjacency_matrix}")
+            logging.debug(f"Reference Graph: {ref_graph}")
 
             pred_graphs.append(
                 {

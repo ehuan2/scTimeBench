@@ -99,6 +99,9 @@ class CellTypist(BaseTrajectoryInferMethod):
             "max_iter": self.traj_config.get("max_iter", 1000),
             "use_SGD": self.traj_config.get("use_SGD", True),
             "mini_batch": self.traj_config.get("mini_batch", True),
+            # decides whether or not to take the gex from the original data and renormalize it for CellTypist, or to just use the predicted values as they are
+            # by default we turn it off because the model itself should be providing gex that's close to it
+            "renormalize": self.traj_config.get("renormalize", False),
         }
 
     def _preprocess(self, data):
@@ -117,6 +120,12 @@ class CellTypist(BaseTrajectoryInferMethod):
             logging.debug(
                 f"Average summed expression per cell: {np.mean(np.sum(np.expm1(data.X), axis=1))}... Rescaling for CellTypist."
             )
+            if not self._parameters()["renormalize"]:
+                logging.debug(
+                    "Renormalization is turned off, so we will not rescale the data for CellTypist. This might lead to suboptimal performance, so proceed with caution."
+                )
+                return data
+
             # first we clip any negative values to 0, as CellTypist doesn't handle negative values well
             data.X = np.clip(data.X, a_min=0, a_max=None)
             # then we rescale the data to have a total count of 1e4 per cell, which is what CellTypist expects

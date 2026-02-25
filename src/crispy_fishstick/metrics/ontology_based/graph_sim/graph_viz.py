@@ -32,8 +32,11 @@ class GraphVisualization(GraphSimMetric):
             # Add edges
             for i in range(num_nodes):
                 for j in range(num_nodes):
-                    if adj_matrix[i, j] < self.threshold:
+                    if is_weighted and adj_matrix[i, j] < self.threshold:
                         continue
+                    elif adj_matrix[i, j] == 0:
+                        continue
+
                     if is_weighted:
                         dot.edge(str(i), str(j), label=f"{adj_matrix[i, j]:.2f}")
                     else:
@@ -48,12 +51,11 @@ class GraphVisualization(GraphSimMetric):
         suffix = "_all_paths" if criteria == ThresholdCriteria.ALL_PATHS.value else ""
         ref_graph_output = os.path.join(self.dataset_dir, f"reference_graph{suffix}")
 
-        if not os.path.exists(ref_graph_output + ".svg"):
-            build_graph_image(
-                graph_ref[AdjacencyMatrixType.UNWEIGHTED],
-                cell_id_to_type,
-                ref_graph_output,
-            )
+        build_graph_image(
+            graph_ref[AdjacencyMatrixType.UNWEIGHTED],
+            cell_id_to_type,
+            ref_graph_output,
+        )
         build_graph_image(
             graph_pred[AdjacencyMatrixType.WEIGHTED],
             cell_id_to_type,
