@@ -12,7 +12,6 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 import joblib
 import os
 import numpy as np
-import anndata as ad
 import scanpy as sc
 
 
@@ -97,15 +96,14 @@ class CellTypist(BaseTrajectoryInferMethod):
         return {
             "n_jobs": self.traj_config.get("n_jobs", 10),
             "max_iter": self.traj_config.get("max_iter", 1000),
+            "use_SGD": self.traj_config.get("use_SGD", True),
+            "mini_batch": self.traj_config.get("mini_batch", True),
         }
 
     def _preprocess(self, data):
-        # I think the data is probably too large, here's a way to cut down on it
         sc.pp.normalize_total(data, target_sum=1e4)
         sc.pp.log1p(data)
-        sc.pp.highly_variable_genes(data, n_top_genes=2000, subset=True)
-        sc.pp.normalize_total(data, target_sum=1e4)
-        sc.pp.log1p(data)
+        return data
 
     def _subclass_train(self, X_train, y_train, traj_infer_path):
         """
@@ -120,29 +118,21 @@ class CellTypist(BaseTrajectoryInferMethod):
 
         import celltypist
 
-        train_adata = ad.AnnData(X=X_train)
+        train_adata = sc.AnnData(X=X_train)
         train_adata.obs[self.label_key] = np.array(y_train)
 
         # turn off numba
         logging.getLogger("numba").setLevel(logging.WARNING)
-        try:
-            self.classifier = celltypist.train(
-                train_adata,
-                labels=self.label_key,
-                n_jobs=self._parameters()["n_jobs"],
-                max_iter=self._parameters()["max_iter"],
-            )
-        except ValueError as e:
-            logging.error(f"Error during CellTypist training: {e}")
-            # this likely happens because of preprocessing issue, so let's try training with preprocessing as a fallback
-            self._preprocess(train_adata)
-            self.classifier = celltypist.train(
-                train_adata,
-                labels=self.label_key,
-                n_jobs=self._parameters()["n_jobs"],
-                max_iter=self._parameters()["max_iter"],
-            )
-
+        train_adata = self._preprocess(train_adata)
+        self.classifier = celltypist.train(
+            train_adata,
+            labels=self.label_key,
+            n_jobs=self._parameters()["n_jobs"],
+            max_iter=self._parameters()["max_iter"],
+            use_SGD=self._parameters()["use_SGD"],
+            mini_batch=self._parameters()["mini_batch"],
+            balance_cell_type=True,
+        )
         joblib.dump(self.classifier, model_path)
         logging.debug(f"Saved CellTypist model to {model_path}")
 
@@ -157,12 +147,13 @@ class CellTypist(BaseTrajectoryInferMethod):
         # turn off numba
         logging.getLogger("numba").setLevel(logging.WARNING)
 
-        pred_adata = ad.AnnData(X=embeds)
-        self._preprocess(pred_adata)
+        # we want to create a new anndata with the same gene names
+        pred_adata = sc.AnnData(X=embeds)
+        pred_adata = self._preprocess(pred_adata)
         predictions = celltypist.annotate(
             pred_adata,
             model=self.classifier,
-            majority_voting=True,
+            majority_voting=True,  # added because otherwise rare populations are gone
         )
 
         probs = predictions.probability_matrix.to_numpy()

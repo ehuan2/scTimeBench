@@ -257,7 +257,7 @@ class StackedBarPlot(GraphSimMetric):
             plot_stacked_bar(
                 source_df,
                 ref_plot_output,
-                f"True Cell Type Proportions Over {self.time_label} for {self.dataset_name}{'' if not self.params['from_tp_zero'] else ' (From Zero to End GEX)'}",
+                f"True Cell Type Proportions Over {self.time_label} for {self.dataset_name}",
             )
         plot_stacked_bar(
             target_df,

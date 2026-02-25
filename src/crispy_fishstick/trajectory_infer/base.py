@@ -190,6 +190,10 @@ class BaseTrajectoryInferMethod:
         with open(os.path.join(traj_infer_path, TRAJ_CONFIG_FILE), "w") as f:
             f.write(str(self))
 
+        # now we also write the traj_config to file for future reference
+        with open(os.path.join(classifier_save_path, TRAJ_CONFIG_FILE), "w") as f:
+            f.write(str(self))
+
         # we use the same cached trajectory path so that way we can save classifiers
         # in the future if needed, as it takes time to fit
         # get the embeddings and timepoints
@@ -433,6 +437,21 @@ class BaseTrajectoryInferMethod:
         # because it does some preprocessing we don't want to repeat
         # this trains a classifier on all the data points
         self.train_and_predict(output_path, train_only=True)
+
+        """
+        This commented out block is in case we want to evaluate the classifier.
+        Otherwise, we just train the classifier itself.
+
+        (pred_probs, idx_to_cells), labels = self.train_and_predict(output_path)
+        # now let's measure the accuracy, f1 score
+
+        from sklearn.metrics import f1_score, classification_report
+        pred_labels = [idx_to_cells[np.argmax(probs)] for probs in pred_probs]
+        f1 = f1_score(labels, pred_labels, average='weighted')
+        logging.debug(f"F1 score for next timepoint prediction: {f1}")
+        logging.debug(f"Classification report for next timepoint prediction:\n{classification_report(labels, pred_labels)}")
+        """
+
         logging.debug(
             f"Inferring trajectory using trajectory inference model: {self.__class__.__name__}"
         )
