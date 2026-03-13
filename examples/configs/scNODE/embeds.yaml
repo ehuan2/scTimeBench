@@ -1,0 +1,10 @@
+model:
+  name: scNODE
+  train_and_test_script: ./models/scNODE/train_and_test.sh
+
+metrics:
+  - name: GraphSimMetric
+    trajectory_infer_model:
+      name: Classifier
+      model_classifier: True
+  - name: EmbeddingMetrics

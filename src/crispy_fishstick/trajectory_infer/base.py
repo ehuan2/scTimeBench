@@ -11,6 +11,7 @@ from crispy_fishstick.shared.utils import (
     load_test_dataset,
     load_output_file,
     get_dataset,
+    is_log_normalized_to_counts,
 )
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold
@@ -54,6 +55,8 @@ class BaseTrajectoryInferMethod:
         assert (
             self.supports_gex() or self.model_classifier
         ), f"Trajectory inference method {self.__class__.__name__} does not support gene expression data."
+
+        self.verbose = False
 
     def __init_subclass__(cls):
         register_trajectory_inference_method(cls)
@@ -148,6 +151,12 @@ class BaseTrajectoryInferMethod:
         - Original gene expr/embedding at time t (for all t)
         """
         if self.uses_gene_expr():
+            # first we check that X is normalized to counts as expected
+            # because this should happen at the filter stage
+            assert is_log_normalized_to_counts(test_ann_data), (
+                "Data is not log-normalized to counts as expected for gene expression-based trajectory inference. "
+                "Please use LogNormFilter to ensure that the data is properly normalized before running the trajectory inference model."
+            )
             return test_ann_data.X.toarray()
         else:
             return load_output_file(output_path, RequiredOutputFiles.EMBEDDING)
@@ -188,6 +197,10 @@ class BaseTrajectoryInferMethod:
 
         # now we also write the traj_config to file for future reference
         with open(os.path.join(traj_infer_path, TRAJ_CONFIG_FILE), "w") as f:
+            f.write(str(self))
+
+        # now we also write the traj_config to file for future reference
+        with open(os.path.join(classifier_save_path, TRAJ_CONFIG_FILE), "w") as f:
             f.write(str(self))
 
         # we use the same cached trajectory path so that way we can save classifiers
@@ -274,11 +287,6 @@ class BaseTrajectoryInferMethod:
             f"Predicting next timepoint with method: {self.__class__.__name__} and config: {self.traj_config}"
         )
 
-        # get the embeddings and timepoints
-        next_timepoint_embeddings = self._get_next_tp_tensors(
-            output_path, test_ann_data
-        )
-
         next_tp_probs_path = os.path.join(traj_infer_path, NEXT_TP_PROBS_FILE)
         idx_to_celltype_path = os.path.join(traj_infer_path, IDX_TO_CELLTYPE_FILE)
 
@@ -290,8 +298,9 @@ class BaseTrajectoryInferMethod:
                 json.load(open(idx_to_celltype_path)),
             )
 
+        # get the embeddings and timepoints
         next_tp_embed_probs, idx_to_cell_types = self._subclass_predict_probs(
-            next_timepoint_embeddings
+            self._get_next_tp_tensors(output_path, test_ann_data)
         )
         np.save(next_tp_probs_path, next_tp_embed_probs)
         with open(idx_to_celltype_path, "w") as f:
@@ -388,11 +397,6 @@ class BaseTrajectoryInferMethod:
         """
         Gets the next cell types for us to use in trajectory inference.
         """
-        # ** This block here gets the next cell type for us! **
-        next_celltype_path = os.path.join(
-            output_path, RequiredOutputFiles.NEXT_CELLTYPE.value
-        )
-
         test_ann_data = load_test_dataset(output_path)
 
         def sequential_tps():
@@ -410,6 +414,10 @@ class BaseTrajectoryInferMethod:
             ]
             return valid_timepoints, cell_tps, cell_types
 
+        # ** This block here gets the next cell type for us! **
+        next_celltype_path = os.path.join(
+            output_path, RequiredOutputFiles.NEXT_CELLTYPE.value
+        )
         # ** Note: if the NEXT_CELLTYPE file already exists, then use that instead (OT methods) **
         if os.path.exists(next_celltype_path):
             # this next block gets the next cell type for us, matching the same indices as valid_timepoints
@@ -432,7 +440,21 @@ class BaseTrajectoryInferMethod:
         # we need to do the train_only option here instead of calling _train directly
         # because it does some preprocessing we don't want to repeat
         # this trains a classifier on all the data points
-        self.train_and_predict(output_path, train_only=True)
+        if not self.verbose:
+            self.train_and_predict(output_path, train_only=True)
+        else:
+            (pred_probs, idx_to_cells), labels = self.train_and_predict(output_path)
+            # now let's measure the accuracy, f1 score
+
+            from sklearn.metrics import f1_score, classification_report
+
+            pred_labels = [idx_to_cells[np.argmax(probs)] for probs in pred_probs]
+            f1 = f1_score(labels, pred_labels, average="weighted")
+            logging.debug(f"F1 score for next timepoint prediction: {f1}")
+            logging.debug(
+                f"Classification report for next timepoint prediction:\n{classification_report(labels, pred_labels)}"
+            )
+
         logging.debug(
             f"Inferring trajectory using trajectory inference model: {self.__class__.__name__}"
         )

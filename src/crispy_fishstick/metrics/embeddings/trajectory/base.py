@@ -3,16 +3,13 @@ Embedding-based metrics.
 """
 from crispy_fishstick.metrics.base import skip_metric
 from crispy_fishstick.metrics.embeddings.base import EmbeddingMetrics
-from crispy_fishstick.shared.constants import RequiredOutputFiles, ObservationColumns
-from crispy_fishstick.shared.utils import load_test_dataset, load_output_file
+from crispy_fishstick.shared.constants import RequiredOutputFiles
 from crispy_fishstick.trajectory_infer.base import (
     TrajectoryInferenceMethodFactory,
     BaseTrajectoryInferMethod,
 )
 from crispy_fishstick.trajectory_infer.classifier import Classifier
-from crispy_fishstick.trajectory_infer.kNN import kNN
-from sklearn.neighbors import NearestNeighbors
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, classification_report
 
 import logging
 import json
@@ -54,7 +51,7 @@ class ClassificationEntropy(TrajectoryEmbeddingMetrics):
             output_path
         )
         test_probas, _ = probas_and_labels
-        next_tp_probas, _, _ = self.trajectory_infer_model.predict_next_tp(output_path)
+        next_tp_probas, _ = self.trajectory_infer_model.predict_next_tp(output_path)
 
         logging.debug(f"Test probabilities: {test_probas}")
         entropy = -np.sum(
@@ -84,79 +81,6 @@ class ClassificationEntropy(TrajectoryEmbeddingMetrics):
                     predicted_entropy / np.log(num_classes)
                 ).item(),
                 "pred_tp_std_entropy": np.std(predicted_entropy).item(),
-            }
-        )
-
-
-# now let's create the other metrics such as the gini index or classification entropy, etc.
-class EmbeddingGiniIndex(TrajectoryEmbeddingMetrics):
-    def _setup_trajectory_inference_model(self):
-        # by default we use the classifier trajectory inference model
-        logging.debug(
-            "Setting up trajectory inference model for classification entropy."
-        )
-
-        self.trajectory_infer_model: kNN = (
-            TrajectoryInferenceMethodFactory().get_trajectory_infer_method(
-                self.metric_config.get(
-                    "trajectory_infer_model",
-                    {"name": kNN.__name__, "model_classifier": True},
-                )
-            )
-        )
-        if not isinstance(self.trajectory_infer_model, kNN):
-            logging.warning("Gini Index only supports kNN trajectory inference model.")
-        self.params["trajectory_infer_model"] = str(self.trajectory_infer_model)
-
-    def _embedding_eval(self, output_path, dataset):
-        if not isinstance(self.trajectory_infer_model, kNN):
-            logging.warning(
-                "Skipping Gini Index evaluation since trajectory inference model is not kNN."
-            )
-            return
-
-        # Load embeddings from output files
-        embeddings = load_output_file(output_path, RequiredOutputFiles.EMBEDDING)
-        next_timepoint_embeddings = load_output_file(
-            output_path, RequiredOutputFiles.NEXT_TIMEPOINT_EMBEDDING
-        )
-
-        # Load test dataset
-        test_ann_data = load_test_dataset(output_path)
-        cell_types = test_ann_data.obs[ObservationColumns.CELL_TYPE.value].to_numpy()
-        timepoints = test_ann_data.obs[ObservationColumns.TIMEPOINT.value]
-
-        # filter next timepoint embeddings to only include the valid timepoints
-        valid_timepoints = np.where(timepoints < timepoints.max())[0]
-        next_timepoint_embeddings = next_timepoint_embeddings[valid_timepoints]
-
-        knn_graph: NearestNeighbors = self.trajectory_infer_model.get_kNN_graph(
-            output_path
-        )
-
-        # now let's compute the gini index based on the knn graph
-        def calc_gini(indices):
-            gini_indices = []
-            for neighbor_indices in indices:
-                neighbor_cell_types = cell_types[neighbor_indices]
-                _, counts = np.unique(neighbor_cell_types, return_counts=True)
-                proportions = counts / counts.sum()
-                gini_index = 1 - np.sum(proportions**2)
-                gini_indices.append(gini_index)
-            return np.array(gini_indices)
-
-        _, indices = knn_graph.kneighbors(embeddings)
-        gini_indices = calc_gini(indices)
-
-        _, pred_indices = knn_graph.kneighbors(next_timepoint_embeddings)
-        gini_pred_indices = calc_gini(pred_indices)
-
-        return json.dumps(
-            {
-                "avg_gini_index": np.mean(gini_indices).item(),
-                "std_gini_index": np.std(gini_indices).item(),
-                "pred_tp_avg_gini_index": np.mean(gini_pred_indices).item(),
-                "pred_tp_std_gini_index": np.std(gini_pred_indices).item(),
             }
         )
 
@@ -234,6 +158,9 @@ class ClassifierMetrics(TrajectoryEmbeddingMetrics):
                 logging.debug(
                     f"Fold {fold_idx + 1}/{self.k_folds} - Accuracy: {fold_accuracy}, F1 Score: {fold_f1}"
                 )
+                logging.debug(
+                    f"Classification Report for Fold {fold_idx + 1}:\n{classification_report(true_labels, pred_labels)}"
+                )
 
             k_fold_accuracy /= self.k_folds
             k_fold_f1 /= self.k_folds
@@ -242,6 +169,5 @@ class ClassifierMetrics(TrajectoryEmbeddingMetrics):
                 {
                     "k_fold_accuracy": k_fold_accuracy,
                     "k_fold_f1_score": k_fold_f1,
-                    "k": self.k_folds,
                 }
             )

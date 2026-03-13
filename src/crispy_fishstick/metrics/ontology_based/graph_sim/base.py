@@ -14,7 +14,7 @@ from crispy_fishstick.shared.dataset.filters.pseudotime_filter import (
     BasePseudotimeFilter,
 )
 from enum import Enum
-from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_curve, precision_recall_curve
 from crispy_fishstick.trajectory_infer.base import TrajectoryInferenceMethodFactory
 import numpy as np
 import logging
@@ -42,6 +42,8 @@ class GraphSimMetric(OntologyBasedMetrics):
             "auto_threshold": True,
             "edge_threshold": 0.1,
             "from_tp_zero": False,
+            # by default we choose PRC threshold if auto_threshold is on
+            "prc_threshold": True,
         }
 
     def _setup_trajectory_inference_model(self):
@@ -239,7 +241,7 @@ class GraphSimMetric(OntologyBasedMetrics):
             # then build the predicted and reference graphs based on this threshold
             pred_graph = self._build_pred_graph_with_threshold(
                 weighted_adjacency_matrix, threshold
-            )
+            ).astype(int)
             if criteria == ThresholdCriteria.ALL_PATHS.value:
                 logging.debug(f"Using ALL_PATHS criterion with threshold: {threshold}")
                 pred_graph = (floyd_warshall(pred_graph) < np.inf).astype(int)
@@ -247,6 +249,11 @@ class GraphSimMetric(OntologyBasedMetrics):
             elif criteria == ThresholdCriteria.SIMPLE.value:
                 logging.debug(f"Using SIMPLE criterion with threshold: {threshold}")
                 ref_graph = unweighted_ref
+
+            logging.debug(f"Threshold: {threshold}")
+            logging.debug(f"Predicted Unweighted: {pred_graph}")
+            logging.debug(f"Predicted Weighted: {weighted_adjacency_matrix}")
+            logging.debug(f"Reference Graph: {ref_graph}")
 
             pred_graphs.append(
                 {
@@ -265,9 +272,9 @@ class GraphSimMetric(OntologyBasedMetrics):
         # let's print out what the predicted trajectory (with thresholding) looks like
         # so we need to map the adjacency matrix back to cell types
         if self.config.log_level == "DEBUG":
-            pred_lineage = {}
             ids_to_cell_types = {v: k for k, v in cell_type_to_id.items()}
             for pred_graph in pred_graphs:
+                pred_lineage = {}
                 for i in range(pred_graph[AdjacencyMatrixType.UNWEIGHTED].shape[0]):
                     for j in range(pred_graph[AdjacencyMatrixType.UNWEIGHTED].shape[1]):
                         if pred_graph[AdjacencyMatrixType.UNWEIGHTED][i, j] == 1.0:
@@ -290,13 +297,25 @@ class GraphSimMetric(OntologyBasedMetrics):
         However, we want to choose it such that it is not at (1, 1) because that is trivial.
         In this case, we select the best threshold besides this one.
         """
-        logging.debug(f"Calculating threshold for {ref}, {pred}")
-        fpr, tpr, thresholds = roc_curve(ref.flatten(), pred.flatten())
-        j_scores = tpr - fpr
-        best_idx = j_scores.argmax()
         logging.debug(
-            f"Selected best threshold at (fpr, tpr): ({fpr[best_idx]}, {tpr[best_idx]}) with threshold: {thresholds[best_idx]}"
+            f"Calculating threshold for {ref}, {pred} using {'prc' if self.params['prc_threshold'] else 'roc'} curve."
         )
+        if self.params["prc_threshold"]:
+            precision, recall, thresholds = precision_recall_curve(
+                ref.flatten().astype(int), pred.flatten()
+            )
+            j_scores = precision + recall
+            best_idx = j_scores.argmax()
+            logging.debug(
+                f"Selected best threshold at (precision, recall): ({precision[best_idx]}, {recall[best_idx]}) with threshold: {thresholds[best_idx]}"
+            )
+        else:
+            fpr, tpr, thresholds = roc_curve(ref.flatten(), pred.flatten())
+            j_scores = tpr - fpr
+            best_idx = j_scores.argmax()
+            logging.debug(
+                f"Selected best threshold at (fpr, tpr): ({fpr[best_idx]}, {tpr[best_idx]}) with threshold: {thresholds[best_idx]}"
+            )
         return thresholds[best_idx]
 
     def _prep_kwargs_for_submetric_eval(self, output_path, dataset, model):
@@ -345,6 +364,7 @@ class GraphSimMetric(OntologyBasedMetrics):
         for graph_dict in graphs:
             graph_pred = graph_dict["graph_preds"]
             graph_ref = graph_dict["graph_refs"]
+            self.threshold = graph_dict["threshold"]
             eval = self._graph_sim_eval(graph_pred, graph_ref, graph_dict["criterion"])
             if eval is not None:
                 eval = json.dumps(

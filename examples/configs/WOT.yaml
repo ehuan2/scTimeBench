@@ -1,6 +1,8 @@
 datasets:
   - tag: defaultGarciaAlonso
   - tag: defaultGarciaAlonsoPseudotimeEvenCells
+  - tag: defaultMa
+  - tag: defaultMaPseudotimeEvenCells
 
 model:
   name: WOT
@@ -9,3 +11,4 @@ model:
 metrics:
  - name: GraphVisualization
  - name: OTLossMetric
+ - name: GraphSimMetric

@@ -18,6 +18,7 @@ import torch
 import scanpy as sc
 import random
 import scipy.sparse as sp
+from tqdm import tqdm
 from optim.running import constructscNODEModel, scNODETrainWithPreTrain
 
 
@@ -174,7 +175,7 @@ class scNODE(BaseModel):
         unique_tps = sorted(np.unique(cell_tps))
 
         next_timepoint_embeds = []
-        for cell, tp in zip(data, cell_tps):
+        for cell, tp in tqdm(zip(data, cell_tps), total=data.shape[0]):
             # given the unique_tps that we have, find the next timepoint
             next_tps = [t for t in unique_tps if t > tp]
             if not next_tps:

@@ -3,12 +3,15 @@ from crispy_fishstick.metrics.ontology_based.graph_sim.base import (
     AdjacencyMatrixType,
 )
 from crispy_fishstick.metrics.ontology_based.graph_sim.utils import floyd_warshall
+from crispy_fishstick.metrics.base import skip_metric
 
 import numpy as np
 import logging
 
 
 # TODO: add some unit tests for this metric!
+# skipping this metric because it doesn't really tell you much...
+@skip_metric
 class AverageShortestPathDiff(GraphSimMetric):
     def _graph_sim_eval(self, graph_pred, graph_ref, criteria):
         """

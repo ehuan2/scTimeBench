@@ -5,6 +5,7 @@ from crispy_fishstick.trajectory_infer.base import (
     BaseTrajectoryInferMethod,
 )
 from crispy_fishstick.shared.constants import ObservationColumns
+from crispy_fishstick.shared.utils import is_log_normalized_to_counts
 from enum import Enum
 import logging
 
@@ -12,7 +13,6 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 import joblib
 import os
 import numpy as np
-import anndata as ad
 import scanpy as sc
 
 
@@ -97,15 +97,49 @@ class CellTypist(BaseTrajectoryInferMethod):
         return {
             "n_jobs": self.traj_config.get("n_jobs", 10),
             "max_iter": self.traj_config.get("max_iter", 1000),
+            "use_SGD": self.traj_config.get("use_SGD", True),
+            "mini_batch": self.traj_config.get("mini_batch", True),
+            # decides whether or not to take the gex from the original data and renormalize it for CellTypist, or to just use the predicted values as they are
+            # by default we turn it off because the model itself should be providing gex that's close to it
+            "renormalize": self.traj_config.get("renormalize", False),
         }
 
     def _preprocess(self, data):
-        # I think the data is probably too large, here's a way to cut down on it
-        sc.pp.normalize_total(data, target_sum=1e4)
-        sc.pp.log1p(data)
-        sc.pp.highly_variable_genes(data, n_top_genes=2000, subset=True)
-        sc.pp.normalize_total(data, target_sum=1e4)
-        sc.pp.log1p(data)
+        # detect if the data is already normalized, and if so, check to see if it's
+        # CP10K, and if not, then we warn the user that this might not be ideal for CellTypist performance
+        if is_log_normalized_to_counts(data):
+            logging.debug("Data appears to be already normalized to CP10K.")
+            return data
+
+        if data.X.max() <= 20:
+            logging.debug(
+                "Data appears to be log-transformed but not normalized. We need to normalize in any case"
+                " for CellTypist to work. Proceed with caution as this might not be ideal for CellTypist performance."
+            )
+
+            logging.debug(
+                f"Average summed expression per cell: {np.mean(np.sum(np.expm1(data.X), axis=1))}... Rescaling for CellTypist."
+            )
+            if not self._parameters()["renormalize"]:
+                logging.debug(
+                    "Renormalization is turned off, so we will not rescale the data for CellTypist. This might lead to suboptimal performance, so proceed with caution."
+                )
+                return data
+
+            # first we clip any negative values to 0, as CellTypist doesn't handle negative values well
+            data.X = np.clip(data.X, a_min=0, a_max=None)
+            # then we rescale the data to have a total count of 1e4 per cell, which is what CellTypist expects
+            data.X = np.expm1(data.X)  # undo log1p transformation
+            sc.pp.normalize_total(data, target_sum=1e4)
+            sc.pp.log1p(data.X)  # log-transform again after normalization
+            return data
+
+        # should not get here...
+        raise ValueError(
+            "Data should either be log-normalized to 10_000 counts or be log-transformed but not normalized (due to predicted values). "
+            "Please check the input data and ensure it is properly preprocessed for CellTypist performance. "
+            "Hint: You should be training and running with LogNormFilter for your particular dataset."
+        )
 
     def _subclass_train(self, X_train, y_train, traj_infer_path):
         """
@@ -120,29 +154,21 @@ class CellTypist(BaseTrajectoryInferMethod):
 
         import celltypist
 
-        train_adata = ad.AnnData(X=X_train)
+        train_adata = sc.AnnData(X=X_train)
         train_adata.obs[self.label_key] = np.array(y_train)
 
         # turn off numba
         logging.getLogger("numba").setLevel(logging.WARNING)
-        try:
-            self.classifier = celltypist.train(
-                train_adata,
-                labels=self.label_key,
-                n_jobs=self._parameters()["n_jobs"],
-                max_iter=self._parameters()["max_iter"],
-            )
-        except ValueError as e:
-            logging.error(f"Error during CellTypist training: {e}")
-            # this likely happens because of preprocessing issue, so let's try training with preprocessing as a fallback
-            self._preprocess(train_adata)
-            self.classifier = celltypist.train(
-                train_adata,
-                labels=self.label_key,
-                n_jobs=self._parameters()["n_jobs"],
-                max_iter=self._parameters()["max_iter"],
-            )
-
+        train_adata = self._preprocess(train_adata)
+        self.classifier = celltypist.train(
+            train_adata,
+            labels=self.label_key,
+            n_jobs=self._parameters()["n_jobs"],
+            max_iter=self._parameters()["max_iter"],
+            use_SGD=self._parameters()["use_SGD"],
+            mini_batch=self._parameters()["mini_batch"],
+            balance_cell_type=True,
+        )
         joblib.dump(self.classifier, model_path)
         logging.debug(f"Saved CellTypist model to {model_path}")
 
@@ -157,12 +183,13 @@ class CellTypist(BaseTrajectoryInferMethod):
         # turn off numba
         logging.getLogger("numba").setLevel(logging.WARNING)
 
-        pred_adata = ad.AnnData(X=embeds)
-        self._preprocess(pred_adata)
+        # we want to create a new anndata with the same gene names
+        pred_adata = sc.AnnData(X=embeds)
+        pred_adata = self._preprocess(pred_adata)
         predictions = celltypist.annotate(
             pred_adata,
             model=self.classifier,
-            majority_voting=True,
+            majority_voting=True,  # added because otherwise rare populations are gone
         )
 
         probs = predictions.probability_matrix.to_numpy()

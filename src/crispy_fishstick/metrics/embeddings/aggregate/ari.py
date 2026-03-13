@@ -44,7 +44,6 @@ class ARI(AggregateEmbeddingMetrics):
         # Load test dataset to get true labels and timepoints
         test_ann_data = load_test_dataset(output_path)
         cell_types = test_ann_data.obs[ObservationColumns.CELL_TYPE.value].to_numpy()
-        timepoints = test_ann_data.obs[ObservationColumns.TIMEPOINT.value].to_numpy()
 
         if embeddings.shape[0] != cell_types.shape[0]:
             raise ValueError(
@@ -53,10 +52,6 @@ class ARI(AggregateEmbeddingMetrics):
 
         # silence the numba warnings
         logging.getLogger("numba").setLevel(logging.WARNING)
-
-        unique_timepoints = sorted(np.unique(timepoints))
-        # if len(unique_timepoints) < 2:
-        #     raise ValueError("At least two timepoints are required for ARI.")
 
         def compute_ari(embeds, labels):
             if embeds.shape[0] == 0:
@@ -70,14 +65,9 @@ class ARI(AggregateEmbeddingMetrics):
             return adjusted_rand_score(labels, adata_eval.obs["leiden_clusters"])
 
         # compute ground truth ARI, excluding the first timepoint
-        # first_timepoint = unique_timepoints[0]
-        # gt_mask = timepoints != first_timepoint
-        # gt_embeddings = embeddings[gt_mask]
-        # gt_labels = cell_types[gt_mask]
         ari_ground_truth = compute_ari(embeddings, cell_types)
 
         # assign next timepoint labels using kNN to all ground truth embeddings
-        # pred_embeddings = next_timepoint_embeddings[gt_mask]
         valid_mask = ~np.isnan(next_timepoint_embeddings).any(axis=1)
         pred_embeddings = next_timepoint_embeddings[valid_mask]
 

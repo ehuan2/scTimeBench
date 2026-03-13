@@ -9,6 +9,7 @@ datasets:
       - name: LineageDatasetFilter
         cell_lineage_file: ./examples/cell_lineages/b_cells/b_cell_line.txt
         cell_equivalence_file: ./examples/cell_lineages/b_cells/equal_names.txt
+      - name: LogNormFilter
       - name: CopySplitFilter
 
   - name: GarciaAlonsoDataset
@@ -21,6 +22,7 @@ datasets:
         cell_equivalence_file: ./examples/cell_lineages/germ/equal_names.txt
       - name: RoundingFilter
         min_cells_per_timepoint: 10
+      - name: LogNormFilter
       - name: CopySplitFilter
 
   - name: MaDataset
@@ -30,6 +32,7 @@ datasets:
     filters:
       - name: LineageDatasetFilter
         cell_lineage_file: ./examples/cell_lineages/pancreas/trunk_lineage.txt
+      - name: LogNormFilter
       - name: CopySplitFilter
 
   - name: GarciaAlonsoDataset
@@ -46,6 +49,7 @@ datasets:
         preprocess_type: zheng_hvg
       - name: RoundingFilter
         num_tps: 15
+      - name: LogNormFilter
       - name: CopySplitFilter
 
   - name: SuoDataset
@@ -62,7 +66,23 @@ datasets:
         preprocess_type: zheng_hvg
       - name: RoundingFilter
         num_tps: 15
+      - name: LogNormFilter
       - name: CopySplitFilter
+
+  - name: MaDataset
+    tag: defaultMaPseudotimeEvenCells
+    data_path: ./data/ma/ma.h5ad
+    requires_caching: true
+    filters:
+      - name: LineageDatasetFilter
+        cell_lineage_file: ./examples/cell_lineages/pancreas/trunk_lineage.txt
+      - name: PseudotimeFilter
+        preprocess_type: zheng_hvg
+      - name: RoundingFilter
+        num_tps: 10
+      - name: LogNormFilter
+      - name: CopySplitFilter
+
 
 ### Core Gene Expression Prediction Datasets ###
   - name: MaDataset
@@ -223,6 +243,7 @@ metric_groups:
       - defaultMa
       - defaultGarciaAlonsoPseudotimeEvenCells
       - defaultSuoPseudotimeEvenCells
+      - defaultMaPseudotimeEvenCells
   gex_prediction:
     dataset_tags:
       - EasyZebrafish
