@@ -1,6 +1,6 @@
 # scTimeBench
 
-![scTimeBench Overview](./scTimeBench.png)
+![scTimeBench Overview](./assets/scTimeBench.png)
 
 
 
