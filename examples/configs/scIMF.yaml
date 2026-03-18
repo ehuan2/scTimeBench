@@ -5,9 +5,9 @@
 # 2026-02-04 16:26:28,575 | DEBUG | root | [warn] Ignoring unknown scIMF config parameter: leaveouts
 # 2026-02-04 16:26:28,575 | DEBUG | root | [warn] Ignoring unknown scIMF config parameter: use_cuda
 
-model:
+method:
   name: scIMF
-  train_and_test_script: ./models/scIMF/train_and_test.sh
+  train_and_test_script: ./methods/scIMF/train_and_test.sh
   metadata:
     train_epochs: 200
     train_lr: 0.001
