@@ -5,7 +5,7 @@ datasets:
 
 method:
   name: Artemis
-  train_and_test_script: ./models/Artemis/train_and_test.sh
+  train_and_test_script: ./methods/Artemis/train_and_test.sh
   metadata:
     # dataset + training control
     dataset: AnnData

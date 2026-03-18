@@ -25,8 +25,8 @@ fi
 echo "Success: Found $FILE_PATH"
 echo "Processing content..."
 
-# 5. Ensure a virtual environment exists at venv/artemis, activate or create it
-VENV_DIR="./venv/artemis"
+# 5. Ensure a virtual environment exists at venv/prescient, activate or create it
+VENV_DIR="./venv/prescient"
 
 if [ -d "$VENV_DIR" ] && [ -f "$VENV_DIR/bin/activate" ]; then
     echo "Found virtualenv at $VENV_DIR. Activating..."
@@ -43,20 +43,12 @@ else
         exit 1
     fi
 
-    echo "Upgrading pip and installing ARTEMIS dependencies into the virtualenv..."
+    echo "Upgrading pip and installing PRESCIENT dependencies into the virtualenv..."
     pip install --upgrade pip
-    if [ -f "./models/Artemis/Artemis_module/requirements.txt" ]; then
-        pip install -r ./models/Artemis/Artemis_module/requirements.txt
-        pip install jax
-        pip install dm-haiku
-        pip install optax
-        pip install ott-jax
-    else
-        echo "Warning: ARTEMIS requirements.txt not found at ./models/Artemis/Artemis_module/requirements.txt"
-    fi
+    pip install prescient
     pip install -e . # makes crispy-fishstick accessible in the venv
 fi
 
 # 6. Now let's run train and test with the provided YAML file
 echo "Running train and test with the activated virtualenv..."
-python ./models/Artemis/run.py --yaml_config "$FILE_PATH"
+python ./methods/PRESCIENT/run.py --yaml_config "$FILE_PATH"

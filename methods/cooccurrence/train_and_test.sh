@@ -26,4 +26,4 @@ echo "Success: Found $FILE_PATH"
 echo "Processing content..."
 
 # 5. Now let's run cooccurrence!
-python ./models/cooccurrence/run.py --yaml_config "$FILE_PATH"
+python ./methods/cooccurrence/run.py --yaml_config "$FILE_PATH"

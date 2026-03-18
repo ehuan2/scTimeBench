@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Waddington-OT (WOT) train and test script
-# This script sets up the environment and runs the WOT model
+# This script sets up the environment and runs the WOT method
 
 # 1. Check if an argument was provided
 if [ $# -eq 0 ]; then
@@ -53,4 +53,4 @@ else
 fi
 
 # 6. Now let's run train and test on run.py with the provided YAML file
-python ./models/WOT/run.py --yaml_config "$FILE_PATH"
+python ./methods/WOT/run.py --yaml_config "$FILE_PATH"

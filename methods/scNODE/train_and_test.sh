@@ -31,5 +31,5 @@ source ./venv/scNODE/bin/activate
 # TODO: install it otherwise under venv/scNODE using the requirements.txt file in the scNODE directory
 echo "Virtual environment activated."
 
-# 6. Now let's run train and test on model.py with the provided YAML file
-python ./models/scNODE/run.py --yaml_config "$FILE_PATH"
+# 6. Now let's run train and test on method.py with the provided YAML file
+python ./methods/scNODE/run.py --yaml_config "$FILE_PATH"

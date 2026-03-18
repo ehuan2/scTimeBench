@@ -25,8 +25,8 @@ fi
 echo "Success: Found $FILE_PATH"
 echo "Processing content..."
 
-# 5. Ensure a virtual environment exists at venv/cell_mnn, activate or create it
-VENV_DIR="./venv/cell_mnn"
+# 5. Ensure a virtual environment exists at venv/pisde, activate or create it
+VENV_DIR="./venv/pisde"
 
 if [ -d "$VENV_DIR" ] && [ -f "$VENV_DIR/bin/activate" ]; then
     echo "Found virtualenv at $VENV_DIR. Activating..."
@@ -43,16 +43,18 @@ else
         exit 1
     fi
 
-    echo "Upgrading pip and installing Cell-MNN dependencies into the virtualenv..."
+    echo "Upgrading pip and installing PI-SDE dependencies into the virtualenv..."
     pip install --upgrade pip
-    if [ -f "./models/MNN/MNN_module/requirements.txt" ]; then
-        pip install -r ./models/MNN/MNN_module/requirements.txt
+    if [ -f "./methods/PISDE/PISDE_module/requirements.txt" ]; then
+        pip install -r ./methods/PISDE/PISDE_module/requirements.txt
+        pip install trampoline
+        pip install boltons
     else
-        echo "Warning: Cell-MNN requirements.txt not found at ./models/MNN/MNN_module/requirements.txt"
+        echo "Warning: PI-SDE requirements.txt not found at ./methods/PISDE/PISDE_module/requirements.txt"
     fi
     pip install -e . # makes crispy-fishstick accessible in the venv
 fi
 
 # 6. Now let's run train and test with the provided YAML file
 echo "Running train and test with the activated virtualenv..."
-python ./models/MNN/run.py --yaml_config "$FILE_PATH"
+python ./methods/PISDE/run.py --yaml_config "$FILE_PATH"

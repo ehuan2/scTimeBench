@@ -52,4 +52,4 @@ fi
 
 # 6. Now let's run train and test with the provided YAML file
 echo "Running train and test with the activated virtualenv..."
-python ./models/Squidiff/run.py --yaml_config "$FILE_PATH"
+python ./methods/Squidiff/run.py --yaml_config "$FILE_PATH"

@@ -42,4 +42,4 @@ fi
 unset LD_LIBRARY_PATH
 
 # 6. Now let's run train and test on run.py with the provided YAML file
-python ./models/moscot/run.py --yaml_config "$FILE_PATH"
+python ./methods/moscot/run.py --yaml_config "$FILE_PATH"

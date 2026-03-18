@@ -26,4 +26,4 @@ echo "Success: Found $FILE_PATH"
 echo "Processing content..."
 
 # 5. Now let's run correlation!
-python ./models/correlation/run.py --yaml_config "$FILE_PATH"
+python ./methods/correlation/run.py --yaml_config "$FILE_PATH"
