@@ -7,4 +7,4 @@ metrics:
   - name: ClassifierMetrics
     trajectory_infer_model:
       name: Classifier
-      model_classifier: True
+      embedding_classifier: True
