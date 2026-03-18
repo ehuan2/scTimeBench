@@ -1,0 +1,23 @@
+method:
+  name: CellMNN
+  train_and_test_script: ./methods/MNN/train_and_test.sh
+  metadata:
+    # training
+    epochs: 100
+    steps_per_epoch: 100
+    batch_size: 256
+    gamma: 0.1
+    kinetic_weight: 1.0
+    inverse_weight: 1.0
+    learning_rate: 0.0002
+    weight_decay: 0.00001
+    # method
+    latent_dim: 5
+    # device
+    use_cuda: true
+    cuda_device: 0
+    auto_device: true
+
+metrics:
+  - name: OTLossMetric
+  #- name: GraphSimMetric

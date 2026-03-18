@@ -1,0 +1,20 @@
+datasets:
+  - tag: defaultGarciaAlonso
+  - tag: defaultSuo
+  - name: SuoDataset
+    data_path: ./data/suo/main.h5ad
+    # note: these preprocessors need to be in order!
+    data_preprocessing_steps:
+      - name: LineageDatasetFilter
+        cell_lineage_file: ./examples/cell_lineages/b_cells/b_cell_line.txt
+        cell_equivalence_file: ./examples/cell_lineages/b_cells/equal_names.txt
+      - name: PercentileSplitTrainTest
+        train_pct: 0.8
+
+method:
+  name: scNODE
+  train_and_test_script: ./methods/scNODE/train_and_test.sh
+
+metrics:
+ - name: L1Norm
+ - name: GraphEditDistance

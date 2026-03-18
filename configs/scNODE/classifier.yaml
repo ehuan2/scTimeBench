@@ -1,0 +1,10 @@
+method:
+  name: scNODE
+  train_and_test_script: ./methods/scNODE/train_and_test.sh
+
+metrics:
+  - name: ClassifierMetrics
+  - name: ClassifierMetrics
+    trajectory_infer_model:
+      name: Classifier
+      embedding_classifier: True

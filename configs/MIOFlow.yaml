@@ -1,0 +1,26 @@
+method:
+  name: MIOFlow
+  train_and_test_script: ./methods/MIOFlow/train_and_test.sh
+  metadata:
+    n_local_epochs: 40
+    n_epochs: 40
+    n_post_local_epochs: 0
+    batch_size: 64
+    layers: "16,32,16"
+    lambda_density: 5.0
+    use_density_loss: false
+    pca_dims: 50
+    seed: 0
+    use_gae: false
+    gae_embedded_dim: 32
+    gae_encoder_layers: ""
+    n_epochs_gae: 10
+    gae_sample_size: 30
+    distance_type: gaussian
+    rbf_length_scale: 0.5
+    knn: 5
+    t_max: 5
+
+metrics:
+  - name: OTLossMetric
+ # - name: GraphSimMetric

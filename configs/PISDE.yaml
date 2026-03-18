@@ -1,0 +1,38 @@
+datasets:
+  - tag: EasyDrosophila
+  - tag: MediumDrosophila
+  - tag: HardDrosophila
+  - tag: EasyMEF
+  - tag: MediumMEF
+  - tag: HardMEF
+  - tag: EasyZebrafish
+  - tag: MediumZebrafish
+  - tag: HardZebrafish
+
+
+method:
+  name: PISDE
+  train_and_test_script: ./methods/PISDE/train_and_test.sh
+  metadata:
+    train_epochs: 100
+    train_lr: 0.005
+    train_lambda: 0.5
+    train_batch: 0.1
+    train_clip: 0.1
+    save: 500
+    sinkhorn_scaling: 0.7
+    sinkhorn_blur: 0.1
+    ns: 2000
+    use_cuda: false
+    device: 0
+    seed: 0
+    k_dims: "400,400"
+    activation: softplus
+    sigma_type: const
+    sigma_const: 0.1
+    start_t: 0
+    leaveouts: null
+
+metrics:
+  - name: OTLossMetric
+  #- name: MMDLoss
