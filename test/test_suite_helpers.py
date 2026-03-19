@@ -19,7 +19,6 @@ SCNODE_FASTEST_METADATA = {
 
 # Explicit per-model fast configs (checked into test/01_end_to_end/configs/all_models).
 MODEL_TEMPLATE_PATHS = {
-    "Artemis": TEST_E2E_CONFIG_ROOT / "Artemis.yaml",
     "CellMNN": TEST_E2E_CONFIG_ROOT / "CellMNN.yaml",
     "Cooccurrence": TEST_E2E_CONFIG_ROOT / "Cooccurrence.yaml",
     "Correlation": TEST_E2E_CONFIG_ROOT / "Correlation.yaml",
