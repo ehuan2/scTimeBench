@@ -16,8 +16,6 @@ pytest "01_end_to_end/test_all_models.py::test_all_models_fast_end_to_end[scNODE
 ## Trajectory Inference Module
 This requires its own separate testing to make sure that the implementations are working as expected.
 
-
-
 ## Metrics
 We need to test each metric that we create and ensure that they work as expected. In particular, we are testing that BaseMetric will populate the evaluation table with something given all the leaf metrics.
 
@@ -34,3 +32,4 @@ Test with
 ```
 pytest 04_datasets
 ```
+This is also a very long test (highly recommend to use GPU).

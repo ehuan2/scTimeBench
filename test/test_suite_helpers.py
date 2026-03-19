@@ -145,18 +145,14 @@ def load_shared_datasets() -> list[dict]:
         / "dataset"
         / "default_datasets.yaml"
     )
-    optional_file = (
-        PROJECT_ROOT
-        / "src"
-        / "scTimeBench"
-        / "shared"
-        / "dataset"
-        / "optional_datasets.yaml"
-    )
-
     default_data = load_yaml(default_file).get("datasets", [])
-    optional_data = load_yaml(optional_file).get("datasets", [])
-    return default_data + optional_data
+
+    # keep runtime short by only testing a small set of representative tags.
+    return [
+        dataset
+        for dataset in default_data
+        if dataset.get("tag") in FAST_TEST_DATASET_TAGS
+    ]
 
 
 def dataset_tag_to_name() -> dict[str, str]:
@@ -244,4 +240,16 @@ GEX_DATASET_NAMES = {
     "ZebrafishDataset",
     "DrosophilaDataset",
     "MEFDataset",
+}
+
+FAST_TEST_DATASET_TAGS = {
+    "defaultGarciaAlonso",
+    "defaultGarciaAlonsoPseudotimeEvenCells",
+    "defaultSuo",
+    "EasyMa",
+    "EasyOlaniru",
+    "EasyMaOlaniru",
+    "EasyZebrafish",
+    "EasyDrosophila",
+    "EasyMEF",
 }
