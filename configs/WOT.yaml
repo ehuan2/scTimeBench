@@ -9,6 +9,4 @@ method:
   train_and_test_script: ./methods/WOT/train_and_test.sh
 
 metrics:
- - name: GraphVisualization
- - name: OTLossMetric
  - name: GraphSimMetric

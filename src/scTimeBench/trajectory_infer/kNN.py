@@ -20,7 +20,6 @@ class kNNStrategy(Enum):
     WEIGHTED_AVERAGE = "weighted_average"
 
 
-# TODO: build a unit test for this class, to ensure that we're doing this properly
 class kNN(BaseTrajectoryInferMethod):
     def __init__(self, traj_config):
         super().__init__(traj_config)

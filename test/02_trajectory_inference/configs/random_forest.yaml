@@ -11,5 +11,5 @@ method:
 metrics:
   - name: ClassifierMetrics
     trajectory_infer_model:
-      name: kNN
+      name: Classifier
       embedding_classifier: True

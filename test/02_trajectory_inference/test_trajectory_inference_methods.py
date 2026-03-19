@@ -13,10 +13,16 @@ TEST_DIR = Path(__file__).parent.parent
 def test_inference_method(config_path, workspace, run_bench):
     """
     Test that a given trajectory inference method config file can be executed end-to-end.
-    Basically, just make sure that it can be run!
-    """
-    log_file = Path(config_path).name + ".log"
-    # run it at the root of the project
-    result = run_bench(config_path, "auto_train_test", workspace, log_file)
 
+    The config file contains everything that we need, so this is not that bad.
+    """
+    log_file = f"02_trajectory_inference_{config_path.stem}.log"
+    # run it at the root of the project
+    result = run_bench(
+        config_path,
+        "auto_train_test",
+        workspace,
+        log_file,
+        extra_args=["--force_rerun"],
+    )
     assert result.returncode == 0

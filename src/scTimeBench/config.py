@@ -251,7 +251,7 @@ class Config:
             for field in dataset_required_fields:
                 assert (
                     field in dataset
-                ), f"Required dataset field '{field}' must be specified in config file."
+                ), f"Required dataset field '{field}' must be specified in config file, or use alternate flag \"tag\" instead."
 
             # also ensure that all the fields found in the dataset are only of the required fields
             # this is to ensure caching also works properly

@@ -1,5 +1,5 @@
 """
-kNN implementation for trajectory inference.
+OT implementation for trajectory inference.
 """
 from scTimeBench.trajectory_infer.base import BaseTrajectoryInferMethod
 import numpy as np
@@ -9,8 +9,13 @@ import torch
 from geomloss import SamplesLoss
 
 
-# TODO: build a unit test for this class, to ensure that we're doing this properly
 class OptimalTransport(BaseTrajectoryInferMethod):
+    """
+    WARNING: This is untested and deprecated.
+
+    Please switch to either kNN or Classifier with scikit-learn based classifiers for better performance and maintainability.
+    """
+
     def __init__(self, traj_config):
         super().__init__(traj_config)
         logging.warning(
