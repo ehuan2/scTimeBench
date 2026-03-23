@@ -21,6 +21,12 @@ scTimeBench Documentation
       <a href="https://colab.research.google.com/drive/1J-yNXu_FcSnhrCwTDQKjWCBSHsmdbohJ?usp=sharing">
          <img src="https://img.shields.io/badge/Google-Colab-orange?logo=googlecolab&style=flat-square" alt="Google Colab" />
       </a>
+      <a href="https://github.com/li-lab-mcgill/scTimeBench/actions/workflows/ci-install.yml">
+         <img src="https://github.com/li-lab-mcgill/scTimeBench/actions/workflows/ci-install.yml/badge.svg" alt="Install" />
+      </a>
+      <a href="https://pypi.org/project/scTimeBench/">
+         <img src="https://img.shields.io/badge/pypi-0.1.0-orange?logo=pypi&style=flat-square" alt="Pypi" />
+      </a>
    </p>
 
 Welcome to the scTimeBench documentation!
@@ -38,3 +44,8 @@ This project provides a comprehensive benchmarking suite for single cell time se
    metric_contrib
    method_contrib
    api
+
+
+
+TODO
+* Update documentation for sqlite database management and csv extraction.

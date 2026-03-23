@@ -1,126 +1,129 @@
 Installation & Setup
 ====================
 
+This page covers the recommended environment setup for running the benchmark,
+developing methods, and building the documentation.
 
 Install: pip
 ~~~~~~~~~~~~
 
-If the external dependencies such as pypsupertime or sceptic are not used (which they are not used by default), you can install using pip as follows:
+If the external dependencies such as pypsupertime or sceptic are not needed, you
+can install the benchmark with pip as follows:
 
 .. code-block:: bash
 
-  pip install -e ".[benchmark]"
+   pip install -e ".[benchmark]"
 
-to run the benchmark. For your own method, simply install without the extra benchmarking requirements with
+This installs the benchmark dependencies used for the default pipeline. For
+method development, install without the extra benchmarking requirements with:
 
 .. code-block:: bash
 
-  pip install -e .
+   pip install -e .
 
-There are extra dependencies that can be found under `pyproject.toml`.
+Additional optional dependency groups are defined in the `pyproject.toml <https://github.com/li-lab-mcgill/scTimeBench/blob/main/pyproject.toml>`_ file.
 
 Install: UV
 ~~~~~~~~~~~
 
-Due to external dependencies and a more complex setup, we have decided to package everything under `uv` (see: https://github.com/astral-sh/uv). To start with, install `uv` then run the following:
+The repository also supports uv, which is useful for managing the benchmark and
+method environments. Install uv and then run:
 
 .. code-block:: bash
 
-  uv sync
+   uv sync
 
-This allows you to create model run files that use the necessary constants and model runners under the scTimeBench packages.
+This creates the default environment for running the benchmark code and the
+shared runners inside scTimeBench.
 
-Note: for the other models, we don't need all the dependencies so for example, if you're setting up the moscot environment,
-
-.. code-block:: bash
-
-  uv sync --no-dev
-
-is enough.
-
-For other packages depending on the metrics used, it would be useful to install them with:
+If you only need a lighter environment, for example for a specific method, you
+can use:
 
 .. code-block:: bash
 
-  uv sync --extra <dependency-group>
+   uv sync --no-dev
 
-e.g.:
-
-.. code-block:: bash
-
-  uv sync --extra test --extra dev --extra benchmark
-
-or simply
+For local development or testing, install one or more extra groups as needed:
 
 .. code-block:: bash
 
-  uv sync --all-extras
+   uv sync --extra test --extra dev --extra benchmark
+
+or:
+
+.. code-block:: bash
+
+   uv sync --all-extras
 
 Python Version
 ~~~~~~~~~~~~~~
 
-We also set the Python version to be 3.10. This will likely cause issues in other python versions, so do try to use:
+The project targets Python 3.10. Use:
 
 .. code-block:: bash
 
-  uv python install 3.10
-  uv python pin 3.10
+   uv python install 3.10
+   uv python pin 3.10
 
 before running uv sync.
 
-Detailed Layout of File Structure
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Repository Layout
+~~~~~~~~~~~~~~~~~
 
-* `examples/` defines the examples
-
-  * `configs/` possible yaml config files to use as a starting point
-* `models/` defines the different models that are possible to use, including defined submodules. Add your own methodology here.
-* `src/` where the scTimeBench package lies. See `src/ReadMe.md` for more documentation on the modules that exist there.
-* `test/` unit tests for each model, each metric, and other important modules.
+* `configs/ <https://github.com/li-lab-mcgill/scTimeBench/tree/main/configs/>`_ contains example benchmark YAML files.
+* `docs/source/ <https://github.com/li-lab-mcgill/scTimeBench/tree/main/docs/source/>`_ contains the documentation source files.
+* `extern/ <https://github.com/li-lab-mcgill/scTimeBench/tree/main/extern/>`_ contains vendored external code used by some methods.
+* `methods/ <https://github.com/li-lab-mcgill/scTimeBench/tree/main/methods/>`_ contains method wrappers and their setup scripts.
+* `src/ <https://github.com/li-lab-mcgill/scTimeBench/tree/main/src/>`_ contains the scTimeBench package itself.
+* `test/ <https://github.com/li-lab-mcgill/scTimeBench/tree/main/test/>`_ contains the benchmark's test suite.
 
 Example Run
 -----------
 
-Run either using the package itself with:
+Run the benchmark with a configuration file such as `configs/scNODE/gex.yaml <https://github.com/li-lab-mcgill/scTimeBench/blob/main/configs/scNODE/gex.yaml>`_:
 
 .. code-block:: bash
 
-  scTimeBench --config examples/configs/scNODE_user_defined.yaml --run_type auto_train_test
+   scTimeBench --config configs/scNODE/gex.yaml
 
-or with:
+You can also run the package entrypoint directly:
 
 .. code-block:: bash
 
-  python src/scTimeBench/main.py --config examples/configs/scNODE_user_defined.yaml --run_type auto_train_test
+   python src/scTimeBench/main.py --config configs/scNODE/gex.yaml
 
 Contributing
 ------------
 
-If you want to contribute, please install both the test and the dev environments with:
+If you want to contribute, install the development and benchmark dependencies
+with one of the following:
 
 .. code-block:: bash
 
-  pip install -e ".[test, dev, benchmark]"
+   pip install -e ".[dev, benchmark]"
 
-Then for our autoformatting, please run:
+or:
 
 .. code-block:: bash
 
-  pre-commit install
+   uv sync --extra dev --extra benchmark
+
+To enable the autoformatter and pre-commit hooks, run:
+
+.. code-block:: bash
+
+   pre-commit install
 
 Testing
 -------
 
-To run a test simply run:
+Run the benchmark test suite with:
 
 .. code-block:: bash
 
-  pytest test
+   pytest test
 
-under the root directory or move to `test` and run:
+from the repository root, or simply run ``pytest`` from inside `test/ <https://github.com/li-lab-mcgill/scTimeBench/tree/main/test/>`_.
 
-.. code-block:: bash
-
-  pytest
-
-See more information on the pytest documentation: https://docs.pytest.org/en/stable/. A useful flag is `-s` to view the entire output of the test.
+See the `pytest documentation <https://docs.pytest.org/en/stable/>`_ for more
+information. A useful flag is -s to view full output.
