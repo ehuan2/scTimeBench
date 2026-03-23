@@ -7,6 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](https://opensource.org/license/mit)
 [![bioRXiv](https://img.shields.io/badge/bioRXiv-10.64898/2026.03.16.712069v1-red.svg?style=flat-square)](https://www.biorxiv.org/content/10.64898/2026.03.16.712069v1)
 [![Google Colab](https://img.shields.io/badge/Google-Colab-orange?logo=googlecolab&style=flat-square)](https://colab.research.google.com/drive/1J-yNXu_FcSnhrCwTDQKjWCBSHsmdbohJ?usp=sharing)
+[![Pypi](https://img.shields.io/badge/pypi-0.1.0-orange?logo=pypi&style=flat-square)](https://pypi.org/project/scTimeBench/)
 <!-- TODO: --> <!-- [![Documentation](https://img.shields.io/badge/Documentation-Online-green.svg?style=flat-square)]() -->
 
 
@@ -51,11 +52,11 @@ uv sync
 ### Standard Pip
 If the external dependencies such as pypsupertime or sceptic are not used (which they are not used by default), you can install using pip as follows:
 ```
-pip install -e ".[benchmark]"
+pip install scTimeBench[benchmark]
 ```
 to run the benchmark. For your own method, simply install without the extra benchmarking requirements with
 ```
-pip install -e .
+pip install scTimeBench
 ```
 There are extra dependencies that can be found under `pyproject.toml`.
 
@@ -86,7 +87,7 @@ If you want to contribute, please install the dev environments with:
 ```
 uv sync --extra dev --extra benchmark
 ```
-or
+or use pip in editable mode with:
 ```
 pip install -e ".[dev, benchmark]"
 ```
