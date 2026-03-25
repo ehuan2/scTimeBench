@@ -8,9 +8,9 @@
 [![bioRXiv](https://img.shields.io/badge/bioRXiv-10.64898/2026.03.16.712069v1-red.svg?style=flat-square)](https://www.biorxiv.org/content/10.64898/2026.03.16.712069v1)
 [![Google Colab](https://img.shields.io/badge/Google-Colab-orange?logo=googlecolab&style=flat-square)](https://colab.research.google.com/drive/1J-yNXu_FcSnhrCwTDQKjWCBSHsmdbohJ?usp=sharing)
 [![Install](https://github.com/li-lab-mcgill/scTimeBench/actions/workflows/ci-install.yml/badge.svg)](https://github.com/li-lab-mcgill/scTimeBench/actions/workflows/ci-install.yml)
-[![Pypi](https://img.shields.io/badge/pypi-0.1.0-orange?logo=pypi&style=flat-square)](https://pypi.org/project/scTimeBench/)
+[![Pypi](https://img.shields.io/badge/pypi-0.1.1-orange?logo=pypi&style=flat-square)](https://pypi.org/project/scTimeBench/)
 [![Zenodo](https://zenodo.org/badge/DOI/10.5281/zenodo.19196641.svg)](https://doi.org/10.5281/zenodo.19196641)
-<!-- TODO: --> <!-- [![Documentation](https://img.shields.io/badge/Documentation-Online-green.svg?style=flat-square)]() -->
+[![Documentation](https://img.shields.io/badge/Documentation-Online-green.svg?style=flat-square)](https://li-lab-mcgill.github.io/scTimeBench/)
 
 
 ![scTimeBench Overview](http://raw.githubusercontent.com/li-lab-mcgill/scTimeBench/refs/heads/main/assets/scTimeBench.png)
@@ -100,7 +100,7 @@ pre-commit install
 ```
 before committing.
 
-Follow our example tutorials on adding new methods, datasets, and metrics in our documentation here: TODO-ADD-THIS.
+Follow our example tutorials on adding new methods, datasets, and metrics in our documentation here: https://li-lab-mcgill.github.io/scTimeBench/.
 
 ### Testing
 If your change heavily modifies the architecture, please run the necessary tests under the `test/` environment using pytest. Read more on the different available tests under `test/ReadMe.md`. See more information on the pytest documentation: https://docs.pytest.org/en/stable/. A useful flag is `-s` to view the entire output of the test.
