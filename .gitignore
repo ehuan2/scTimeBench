@@ -1,5 +1,7 @@
-##Sphinx Files
+# Sphinx Files
 docs/_build/
+docs/source/_static/leaderboard
+
 # Misc. artifacts
 csv_results/
 *.png

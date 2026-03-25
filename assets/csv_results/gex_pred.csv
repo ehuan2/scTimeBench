@@ -997,55 +997,6 @@ Squidiff,DrosophilaDataset,hard,WassersteinOTLoss,10.0,2673.82074525797
 PRESCIENT,ZebrafishDataset,med,WassersteinOTLoss,avg,0.437892602092203
 PRESCIENT,ZebrafishDataset,med,WassersteinOTLoss,10.0,0.360771481654645
 PRESCIENT,ZebrafishDataset,med,WassersteinOTLoss,11.0,0.515013722529762
-CellMNN,SuoDataset,hard,AverageShortestPathDiff,avg,"{""false_positives"": 16, ""avg_diff"": 2.0714285714285716, ""false_negatives"": 37, ""overlap_paths"": 14, ""total_paths"": 51}"
-MIOFlow,SuoDataset,hard,AverageShortestPathDiff,avg,"{""false_positives"": 4, ""avg_diff"": 2.2, ""false_negatives"": 41, ""overlap_paths"": 10, ""total_paths"": 51}"
-MIOFlow,GarciaAlonsoDataset,hard,AverageShortestPathDiff,avg,"{""false_positives"": 10, ""avg_diff"": 0.6666666666666666, ""false_negatives"": 9, ""overlap_paths"": 3, ""total_paths"": 12}"
-MIOFlow,MaDataset,hard,AverageShortestPathDiff,avg,"{""false_positives"": 4, ""avg_diff"": 0.0, ""false_negatives"": 2, ""overlap_paths"": 3, ""total_paths"": 5}"
-MIOFlow,SuoDataset,hard,GraphAccuracy,avg,0.851239669421488
-MIOFlow,GarciaAlonsoDataset,hard,GraphAccuracy,avg,0.611111111111111
-MIOFlow,MaDataset,hard,GraphAccuracy,avg,0.6875
-MIOFlow,SuoDataset,hard,GraphPrecision,avg,0.214285714285714
-MIOFlow,GarciaAlonsoDataset,hard,GraphPrecision,avg,0.0909090909090909
-MIOFlow,MaDataset,hard,GraphPrecision,avg,0.333333333333333
-MIOFlow,SuoDataset,hard,GraphRecall,avg,0.3
-MIOFlow,GarciaAlonsoDataset,hard,GraphRecall,avg,0.2
-MIOFlow,MaDataset,hard,GraphRecall,avg,0.666666666666667
-MIOFlow,SuoDataset,hard,GraphF1,avg,0.25
-MIOFlow,GarciaAlonsoDataset,hard,GraphF1,avg,0.125
-MIOFlow,MaDataset,hard,GraphF1,avg,0.444444444444444
-MIOFlow,SuoDataset,hard,GraphEditDistance,avg,4.24264049530029
-MIOFlow,GarciaAlonsoDataset,hard,GraphEditDistance,avg,3.74165749549866
-MIOFlow,MaDataset,hard,GraphEditDistance,avg,2.2360680103302
-MIOFlow,SuoDataset,hard,GraphVisualization,avg,None
-MIOFlow,GarciaAlonsoDataset,hard,GraphVisualization,avg,None
-MIOFlow,MaDataset,hard,GraphVisualization,avg,None
-MIOFlow,SuoDataset,hard,JaccardSimilarity,avg,0.142857142857143
-MIOFlow,GarciaAlonsoDataset,hard,JaccardSimilarity,avg,0.0666666666666667
-MIOFlow,MaDataset,hard,JaccardSimilarity,avg,0.285714285714286
-scIMF,SuoDataset,hard,AverageShortestPathDiff,avg,"{""false_positives"": 4, ""avg_diff"": 2.2, ""false_negatives"": 41, ""overlap_paths"": 10, ""total_paths"": 51}"
-scIMF,GarciaAlonsoDataset,hard,AverageShortestPathDiff,avg,"{""false_positives"": 10, ""avg_diff"": 0.6666666666666666, ""false_negatives"": 9, ""overlap_paths"": 3, ""total_paths"": 12}"
-scIMF,MaDataset,hard,AverageShortestPathDiff,avg,"{""false_positives"": 4, ""avg_diff"": 0.0, ""false_negatives"": 2, ""overlap_paths"": 3, ""total_paths"": 5}"
-scIMF,SuoDataset,hard,GraphAccuracy,avg,0.851239669421488
-scIMF,GarciaAlonsoDataset,hard,GraphAccuracy,avg,0.611111111111111
-scIMF,MaDataset,hard,GraphAccuracy,avg,0.6875
-scIMF,SuoDataset,hard,GraphPrecision,avg,0.214285714285714
-scIMF,GarciaAlonsoDataset,hard,GraphPrecision,avg,0.0909090909090909
-scIMF,MaDataset,hard,GraphPrecision,avg,0.333333333333333
-scIMF,SuoDataset,hard,GraphRecall,avg,0.3
-scIMF,GarciaAlonsoDataset,hard,GraphRecall,avg,0.2
-scIMF,MaDataset,hard,GraphRecall,avg,0.666666666666667
-scIMF,SuoDataset,hard,GraphF1,avg,0.25
-scIMF,GarciaAlonsoDataset,hard,GraphF1,avg,0.125
-scIMF,MaDataset,hard,GraphF1,avg,0.444444444444444
-scIMF,SuoDataset,hard,GraphEditDistance,avg,4.24264049530029
-scIMF,GarciaAlonsoDataset,hard,GraphEditDistance,avg,3.74165749549866
-scIMF,MaDataset,hard,GraphEditDistance,avg,2.2360680103302
-scIMF,SuoDataset,hard,GraphVisualization,avg,None
-scIMF,GarciaAlonsoDataset,hard,GraphVisualization,avg,None
-scIMF,MaDataset,hard,GraphVisualization,avg,None
-scIMF,SuoDataset,hard,JaccardSimilarity,avg,0.142857142857143
-scIMF,GarciaAlonsoDataset,hard,JaccardSimilarity,avg,0.0666666666666667
-scIMF,MaDataset,hard,JaccardSimilarity,avg,0.285714285714286
 Squidiff,MEFDataset,easy,WassersteinOTLoss,avg,2479.16927892568
 Squidiff,MEFDataset,easy,WassersteinOTLoss,5.0,2485.76434081914
 Squidiff,MEFDataset,easy,WassersteinOTLoss,11.0,2466.63278695333
@@ -1054,35 +1005,12 @@ PISDE,MEFDataset,easy,WassersteinOTLoss,avg,0.136216972037532
 PISDE,MEFDataset,easy,WassersteinOTLoss,5.0,0.101283555056585
 PISDE,MEFDataset,easy,WassersteinOTLoss,11.0,0.146198068463299
 PISDE,MEFDataset,easy,WassersteinOTLoss,15.0,0.161169292592712
-CellMNN,GarciaAlonsoDataset,hard,AverageShortestPathDiff,avg,"{""false_positives"": 1, ""avg_diff"": 0.0, ""false_negatives"": 11, ""overlap_paths"": 1, ""total_paths"": 12}"
 PRESCIENT,ZebrafishDataset,hard,WassersteinOTLoss,avg,0.675492696182469
 PRESCIENT,ZebrafishDataset,hard,WassersteinOTLoss,2.0,0.605447731116036
 PRESCIENT,ZebrafishDataset,hard,WassersteinOTLoss,4.0,0.533197642430882
 PRESCIENT,ZebrafishDataset,hard,WassersteinOTLoss,6.0,0.499317669816732
 PRESCIENT,ZebrafishDataset,hard,WassersteinOTLoss,10.0,0.591589419559668
 PRESCIENT,ZebrafishDataset,hard,WassersteinOTLoss,11.0,1.14791101798902
-CellMNN,MaDataset,hard,AverageShortestPathDiff,avg,"{""false_positives"": 1, ""avg_diff"": 0.0, ""false_negatives"": 5, ""overlap_paths"": 0, ""total_paths"": 5}"
-CellMNN,SuoDataset,hard,GraphAccuracy,avg,0.809917355371901
-CellMNN,GarciaAlonsoDataset,hard,GraphAccuracy,avg,0.861111111111111
-CellMNN,MaDataset,hard,GraphAccuracy,avg,0.75
-CellMNN,SuoDataset,hard,GraphPrecision,avg,0.157894736842105
-CellMNN,GarciaAlonsoDataset,hard,GraphPrecision,avg,0.5
-CellMNN,MaDataset,hard,GraphPrecision,avg,0.0
-CellMNN,SuoDataset,hard,GraphRecall,avg,0.3
-CellMNN,GarciaAlonsoDataset,hard,GraphRecall,avg,0.2
-CellMNN,MaDataset,hard,GraphRecall,avg,0.0
-CellMNN,SuoDataset,hard,GraphF1,avg,0.206896551724138
-CellMNN,GarciaAlonsoDataset,hard,GraphF1,avg,0.285714285714286
-CellMNN,MaDataset,hard,GraphF1,avg,0.0
-CellMNN,SuoDataset,hard,GraphEditDistance,avg,4.79583168029785
-CellMNN,GarciaAlonsoDataset,hard,GraphEditDistance,avg,2.2360680103302
-CellMNN,MaDataset,hard,GraphEditDistance,avg,2.0
-CellMNN,SuoDataset,hard,GraphVisualization,avg,None
-CellMNN,GarciaAlonsoDataset,hard,GraphVisualization,avg,None
-CellMNN,MaDataset,hard,GraphVisualization,avg,None
-CellMNN,SuoDataset,hard,JaccardSimilarity,avg,0.115384615384615
-CellMNN,GarciaAlonsoDataset,hard,JaccardSimilarity,avg,0.166666666666667
-CellMNN,MaDataset,hard,JaccardSimilarity,avg,0.0
 Squidiff,MEFDataset,med,WassersteinOTLoss,avg,2504.69260569986
 Squidiff,MEFDataset,med,WassersteinOTLoss,16.0,2501.2087323026
 Squidiff,MEFDataset,med,WassersteinOTLoss,17.0,2505.58865131339
@@ -1102,14 +1030,6 @@ Squidiff,MEFDataset,hard,WassersteinOTLoss,18.0,2550.29055070115
 scNODE,ZebrafishDataset,med,WassersteinOTLoss,avg,0.544958090601255
 scNODE,ZebrafishDataset,med,WassersteinOTLoss,10.0,0.747672428354955
 scNODE,ZebrafishDataset,med,WassersteinOTLoss,11.0,0.342243752847555
-PRESCIENT,SuoDataset,hard,AverageShortestPathDiff,avg,"{""false_positives"": 3, ""avg_diff"": 2.272727272727273, ""false_negatives"": 40, ""overlap_paths"": 11, ""total_paths"": 51}"
-PRESCIENT,SuoDataset,hard,GraphAccuracy,avg,0.851239669421488
-PRESCIENT,SuoDataset,hard,GraphPrecision,avg,0.214285714285714
-PRESCIENT,SuoDataset,hard,GraphRecall,avg,0.3
-PRESCIENT,SuoDataset,hard,GraphF1,avg,0.25
-PRESCIENT,SuoDataset,hard,GraphEditDistance,avg,4.24264049530029
-PRESCIENT,SuoDataset,hard,GraphVisualization,avg,None
-PRESCIENT,SuoDataset,hard,JaccardSimilarity,avg,0.142857142857143
 scNODE,ZebrafishDataset,hard,WassersteinOTLoss,avg,0.290712537725256
 scNODE,ZebrafishDataset,hard,WassersteinOTLoss,2.0,0.305523711059044
 scNODE,ZebrafishDataset,hard,WassersteinOTLoss,4.0,0.257743577713074
@@ -1141,14 +1061,6 @@ scNODE,MEFDataset,easy,WassersteinOTLoss,avg,0.0671934798709003
 scNODE,MEFDataset,easy,WassersteinOTLoss,5.0,0.0449192524634865
 scNODE,MEFDataset,easy,WassersteinOTLoss,11.0,0.0798911837052971
 scNODE,MEFDataset,easy,WassersteinOTLoss,15.0,0.0767700034439172
-PRESCIENT,GarciaAlonsoDataset,hard,AverageShortestPathDiff,avg,"{""false_positives"": 10, ""avg_diff"": 0.6666666666666666, ""false_negatives"": 9, ""overlap_paths"": 3, ""total_paths"": 12}"
-PRESCIENT,GarciaAlonsoDataset,hard,GraphAccuracy,avg,0.611111111111111
-PRESCIENT,GarciaAlonsoDataset,hard,GraphPrecision,avg,0.0909090909090909
-PRESCIENT,GarciaAlonsoDataset,hard,GraphRecall,avg,0.2
-PRESCIENT,GarciaAlonsoDataset,hard,GraphF1,avg,0.125
-PRESCIENT,GarciaAlonsoDataset,hard,GraphEditDistance,avg,3.74165749549866
-PRESCIENT,GarciaAlonsoDataset,hard,GraphVisualization,avg,None
-PRESCIENT,GarciaAlonsoDataset,hard,JaccardSimilarity,avg,0.0666666666666667
 scNODE,MEFDataset,med,WassersteinOTLoss,avg,0.829583562583954
 scNODE,MEFDataset,med,WassersteinOTLoss,16.0,2.36523664519767
 scNODE,MEFDataset,med,WassersteinOTLoss,17.0,0.0611916203154393
@@ -1222,7 +1134,6 @@ PRESCIENT,OlaniruDataset,hard,EnergyDistanceLoss,avg,0.00358108809433311
 PRESCIENT,OlaniruDataset,hard,EnergyDistanceLoss,1.0,0.000932317275756993
 PRESCIENT,OlaniruDataset,hard,EnergyDistanceLoss,4.0,0.00324699864803848
 PRESCIENT,OlaniruDataset,hard,EnergyDistanceLoss,6.0,0.00656394835920386
-PISDE,SuoDataset,hard,AverageShortestPathDiff,avg,"{""false_positives"": 3, ""avg_diff"": 2.2, ""false_negatives"": 41, ""overlap_paths"": 10, ""total_paths"": 51}"
 scNODE,MaDataset,hard,WassersteinOTLoss,avg,14.2426788595572
 scNODE,MaDataset,hard,WassersteinOTLoss,2.0,1.48786376492613
 scNODE,MaDataset,hard,WassersteinOTLoss,4.0,6.26514015917198

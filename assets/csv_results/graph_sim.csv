@@ -83,7 +83,6 @@ scNODE,SuoDataset,multi_step,JaccardSimilarity,Pseudotime,0.512396694214876,prc
 scNODE,SuoDataset,single_step,JaccardSimilarity,Pseudotime,0.1,prc
 scNODE,MaDataset,multi_step,JaccardSimilarity,Pseudotime,0.5625,prc
 scNODE,MaDataset,single_step,JaccardSimilarity,Pseudotime,0.25,prc
-
 Cooccurrence,SuoDataset,multi_step,threshold,Real Time,0.0010641285576363,prc
 Cooccurrence,SuoDataset,multi_step,F1,Real Time,0.6775956284153005,prc
 Cooccurrence,SuoDataset,multi_step,AUC_PRC,Real Time,0.4801838680945384,prc
