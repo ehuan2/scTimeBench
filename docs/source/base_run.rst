@@ -12,6 +12,8 @@ metrics, and let the benchmark resolve the default datasets for those metrics.
 The dataset definitions, preprocessing steps, and metric-group defaults are then
 pulled from the shared dataset registry.
 
+The datasets, configuration files and scripts for methods implemented in the scTimeBench paper can be downloaded from `Zenodo <https://doi.org/10.5281/zenodo.19196641>`_.
+
 Start from a config file
 ------------------------
 
