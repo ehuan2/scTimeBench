@@ -9,6 +9,7 @@
 [![Google Colab](https://img.shields.io/badge/Google-Colab-orange?logo=googlecolab&style=flat-square)](https://colab.research.google.com/drive/1J-yNXu_FcSnhrCwTDQKjWCBSHsmdbohJ?usp=sharing)
 [![Install](https://github.com/li-lab-mcgill/scTimeBench/actions/workflows/ci-install.yml/badge.svg)](https://github.com/li-lab-mcgill/scTimeBench/actions/workflows/ci-install.yml)
 [![Pypi](https://img.shields.io/badge/pypi-0.1.0-orange?logo=pypi&style=flat-square)](https://pypi.org/project/scTimeBench/)
+[![Zenodo](https://zenodo.org/badge/DOI/10.5281/zenodo.19196641.svg)](https://doi.org/10.5281/zenodo.19196641)
 <!-- TODO: --> <!-- [![Documentation](https://img.shields.io/badge/Documentation-Online-green.svg?style=flat-square)]() -->
 
 
