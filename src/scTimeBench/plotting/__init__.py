@@ -189,7 +189,7 @@ class Plotting:
         moscot_method = find_method_name(unique_methods, "Moscot")
         wot_method = find_method_name(unique_methods, "WOT")
         correlation_method = find_method_name(unique_methods, "Correlation")
-        ot_cfm_method = find_method_name(unique_methods, "ot_cfm")
+        ot_cfm_method = find_method_name(unique_methods, "OT-CFM")
 
         methods_to_move_last = [
             method_name
