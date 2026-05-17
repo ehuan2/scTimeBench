@@ -20,7 +20,8 @@ class Plotting:
         Plots graph similarity metrics from a CSV file.
         """
         self.plot_graph_sim_heatmap(csv_path)
-        self.plot_graph_sim_scatter(csv_path)
+        self.plot_graph_sim_scatter(csv_path, time_type="Real Time")
+        self.plot_graph_sim_scatter(csv_path, time_type="Pseudotime")
 
     def plot_graph_sim_heatmap(self, csv_path):
         import pandas as pd
@@ -144,13 +145,15 @@ class Plotting:
         plt.tight_layout()
         plt.savefig(OUTPUT_FILE, format="svg")
 
-    def plot_graph_sim_scatter(self, csv_path):
+    def plot_graph_sim_scatter(self, csv_path, time_type):
         """
         Plots a scatter plot of graph similarity metrics from a CSV file, with custom colors and legend.
         """
         import pandas as pd
         import seaborn as sns
         import matplotlib.pyplot as plt
+        import numpy as np
+        import matplotlib.colors as mcolors
         from matplotlib.lines import Line2D
 
         # Load data
@@ -160,7 +163,7 @@ class Plotting:
         metrics_to_plot = ["JaccardSimilarity", "AUC_PRC", "AUC_ROC"]
         plot_df = df[
             (df["threshold_type"] == "prc")
-            & (df["time_type"] == "Real Time")
+            & (df["time_type"] == time_type)
             & (df["metric"].isin(metrics_to_plot))
         ].copy()
 
@@ -170,46 +173,72 @@ class Plotting:
         )
         plot_df = plot_df.sort_values(["metric", "dataset"])
 
-        plot_df["x_axis_group"] = (
-            plot_df["dataset"].astype(str) + " | " + plot_df["metric"].astype(str)
-        )
-        group_order = list(dict.fromkeys(plot_df["x_axis_group"]))
+        dataset_order = list(dict.fromkeys(plot_df["dataset"]))
 
         # 2. Setup the Unified Palette and Explicit Order
-        unique_methods = plot_df["method"].unique()
-        # special_methods = ["Correlation", "Random"]
-        special_methods = ["Correlation"]
-        other_methods = [m for m in unique_methods if m not in special_methods]
+        unique_methods = sorted(
+            plot_df["method"].dropna().unique().tolist(), key=str.casefold
+        )
 
-        # Force Correlation and Random to the front of the list
-        ordered_methods = special_methods + other_methods
+        def find_method_name(methods, target_name):
+            for method_name in methods:
+                if method_name.casefold() == target_name.casefold():
+                    return method_name
+            return None
 
-        # Get enough colors from Set2 for the non-highlighted methods
-        set2_colors = sns.color_palette("Set2", len(other_methods))
+        moscot_method = find_method_name(unique_methods, "Moscot")
+        wot_method = find_method_name(unique_methods, "WOT")
+        correlation_method = find_method_name(unique_methods, "Correlation")
+        ot_cfm_method = find_method_name(unique_methods, "OT-CFM")
 
-        # Build the combined palette dictionary using the ordered list
+        methods_to_move_last = [
+            method_name
+            for method_name in [
+                moscot_method,
+                wot_method,
+                correlation_method,
+                ot_cfm_method,
+            ]
+            if method_name is not None
+        ]
+        base_methods = [m for m in unique_methods if m not in methods_to_move_last]
+        ordered_methods = base_methods + methods_to_move_last
+
+        # Skip the original amber-like slot in Set1; reserve amber for Moscot explicitly.
+        set1_candidates = sns.color_palette("Set1", len(base_methods) + 3)
+        base_palette = [color for idx, color in enumerate(set1_candidates) if idx != 5]
+        if len(base_palette) < len(base_methods):
+            base_palette = sns.color_palette("tab20", len(base_methods))
+
         custom_palette = {}
-        color_index = 0
+        for idx, method_name in enumerate(base_methods):
+            custom_palette[method_name] = base_palette[idx]
 
-        for method in ordered_methods:
-            if method == "Correlation":
-                custom_palette[method] = "#E63946"
-            else:
-                custom_palette[method] = set2_colors[color_index]
-                color_index += 1
+        if moscot_method is not None:
+            custom_palette[moscot_method] = "#FFB000"  # amber
+        if wot_method is not None:
+            custom_palette[wot_method] = "#455A64"  # strong blue
+        if ot_cfm_method is not None:
+            custom_palette[ot_cfm_method] = "#5DACE5"  # olive
+        if correlation_method is not None:
+            custom_palette[correlation_method] = "#CC79A7"  # magenta-purple
 
-        all_methods = (
-            ordered_methods  # This is now in the desired order for plotting and legend
+        all_methods = ordered_methods
+        plot_df["method"] = pd.Categorical(
+            plot_df["method"], categories=all_methods, ordered=True
         )
 
         # 3. Setup the Grid
         g = sns.FacetGrid(
             plot_df,
             row="step_setting",
-            height=4,
-            aspect=1.8,
+            col="metric",
+            col_order=metrics_to_plot,
+            height=3.8,
+            aspect=0.78,
             margin_titles=True,
             sharex=True,
+            sharey=True,
         )
 
         # 4. Define Plotting Function
@@ -219,16 +248,67 @@ class Plotting:
             # Now we just plot everything in one go using the unified palette
             sns.swarmplot(
                 data=data,
-                x="x_axis_group",
+                x="dataset",
                 y="result",
                 hue="method",
-                order=group_order,
+                hue_order=all_methods,
+                order=dataset_order,
                 palette=custom_palette,
-                size=5,
+                size=7,
                 dodge=False,
                 ax=ax,
                 alpha=1.0,
             )
+
+            # Keep seaborn's jitter placement, then replace Correlation circles with diamonds.
+            if correlation_method is not None:
+                correlation_color = np.array(
+                    mcolors.to_rgba(custom_palette[correlation_method])
+                )
+                for collection in ax.collections:
+                    facecolors = collection.get_facecolors()
+                    if facecolors is None or len(facecolors) == 0:
+                        continue
+
+                    # seaborn puts multiple method colors in the same PathCollection,
+                    # so we mask per point (not per collection).
+                    rgb_close = np.isclose(
+                        facecolors[:, :3], correlation_color[:3], atol=1e-3
+                    )
+                    corr_mask = np.all(rgb_close, axis=1)
+                    if not np.any(corr_mask):
+                        continue
+
+                    offsets = collection.get_offsets()
+                    if offsets is None or len(offsets) == 0:
+                        continue
+
+                    corr_offsets = offsets[corr_mask]
+                    ax.scatter(
+                        corr_offsets[:, 0],
+                        corr_offsets[:, 1],
+                        marker="D",
+                        s=40,
+                        c=[custom_palette[correlation_method]],
+                        edgecolors="black",
+                        linewidths=0.6,
+                        zorder=collection.get_zorder() + 0.1,
+                    )
+
+                    updated_facecolors = facecolors.copy()
+                    updated_facecolors[corr_mask, 3] = 0.0
+                    collection.set_facecolors(updated_facecolors)
+
+                    edgecolors = collection.get_edgecolors()
+                    if edgecolors is not None and len(edgecolors) > 0:
+                        if len(edgecolors) == 1 and len(updated_facecolors) > 1:
+                            edgecolors = np.repeat(
+                                edgecolors, len(updated_facecolors), axis=0
+                            )
+                        if len(edgecolors) == len(updated_facecolors):
+                            updated_edgecolors = edgecolors.copy()
+                            updated_edgecolors[corr_mask, 3] = 0.0
+                            collection.set_edgecolors(updated_edgecolors)
 
             if ax.get_legend():
                 ax.get_legend().remove()
@@ -238,33 +318,38 @@ class Plotting:
 
         # 6. Final Polish
         g.set(ylim=(0, 1.05))
-        g.set_axis_labels("", "Score (0.0 - 1.0)")
+        g.set_axis_labels("Dataset", "Score (0.0 - 1.0)")
 
-        for ax in g.axes.flat:
-            ax.set_xticks(range(len(group_order)))
-            ax.set_xticklabels(group_order, rotation=90, ha="center", fontsize=7)
+        for row_idx, axes_row in enumerate(g.axes):
+            for col_idx, ax in enumerate(axes_row):
+                ax.set_xticks(range(len(dataset_order)))
+                ax.set_xticklabels(dataset_order, rotation=45, ha="right", fontsize=7)
+                ax.set_xlim(-0.5, len(dataset_order) - 0.5)
+                ax.tick_params(axis="y", labelsize=7, labelleft=True, left=True)
+                ax.yaxis.set_label_position("left")
+                ax.yaxis.tick_left()
+                ax.set_ylabel(f"{metrics_to_plot[col_idx]} (0.0 - 1.0)", fontsize=8)
 
-            for i in range(len(group_order)):
-                if (i + 1) % len(metrics_to_plot) == 0:
-                    ax.axvline(
-                        i + 0.5, color="black", linestyle="-", alpha=0.1, linewidth=1
-                    )
-
-        # 7. Custom Legend
         # 7. Custom Legend
         legend_elements = []
 
         # Iterate through all methods and use the custom_palette dictionary for the colors
         for m in all_methods:
+            is_correlation = correlation_method is not None and m == correlation_method
+            marker = "D" if is_correlation else "o"
+            marker_edge_color = "black" if is_correlation else "none"
+            marker_edge_width = 0.6 if is_correlation else 0.0
             legend_elements.append(
                 Line2D(
                     [0],
                     [0],
-                    marker="o",
+                    marker=marker,
                     color="w",
                     label=m,
                     markerfacecolor=custom_palette[m],
                     markersize=6,
+                    markeredgecolor=marker_edge_color,
+                    markeredgewidth=marker_edge_width,
                 )
             )
 
@@ -283,9 +368,9 @@ class Plotting:
             ncol=num_columns,  # Automatically splits into 2 rows
         )
 
-        plt.subplots_adjust(top=0.9, right=0.88, bottom=0.35, hspace=0.4)
+        plt.subplots_adjust(top=0.9, right=0.98, bottom=0.25, hspace=0.4, wspace=0.32)
         plt.savefig(
-            f"{self.config.plot_output_dir}/graph_sim_scatter.svg",
+            f"{self.config.plot_output_dir}/graph_sim_scatter_{'real' if time_type == 'Real Time' else 'pseudotime'}.svg",
             format="svg",
             bbox_inches="tight",
         )
