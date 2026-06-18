@@ -144,6 +144,7 @@ class MetaGRN(MetaMetric):
             "grn_path": "grn_data/resources/trrust_rawdata.human.tsv",
             "genes": None,
             "num_genes": 5,
+            "num_perturbs": 1,
             "gene_col_name": None,
             "plot_grns": True,
         }
@@ -242,6 +243,9 @@ class MetaGRN(MetaMetric):
             dataset (Dataset): The dataset object.
             method (Method): The method object.
         """
+        # set the random seed to ensure reproducibility
+        np.random.seed(self.config.random_seed)
+
         self.grn = GRN(grn_path=self.params["grn_path"])
 
         # let's print out the overlap of genes
@@ -258,6 +262,9 @@ class MetaGRN(MetaMetric):
         logging.debug(f"Number of genes in dataset: {len(genes_in_dataset)}")
         logging.debug(f"Number of overlapping genes: {len(overlapping_genes)}")
         logging.debug(f"Example overlapping genes: {overlapping_genes[:10]}")
+
+        # genes in the dataset that aren't in the GRN
+        non_overlapping_genes = list(genes_in_dataset.difference(genes_in_grn))
 
         # Filter rows in .var where the gene_col values are in our overlapping list
         filtered_dataset = train_dataset[
@@ -283,18 +290,33 @@ class MetaGRN(MetaMetric):
 
         # next we handle each gene itself
         for gene in genes:
-            self._handle_gene(gene, dataset.get_test_dataset_dir())
+            self._handle_gene(
+                gene,
+                dataset.get_test_dataset_dir(),
+                overlapping_genes,
+                non_overlapping_genes,
+            )
 
-    def _handle_gene(self, gene, dataset_path):
+    def _handle_gene(
+        self, gene, dataset_path, overlapping_genes, non_overlapping_genes
+    ):
         """
         Given a certain gene, we find:
-            1) the genes that regulate it
-            2) the genes that it regulates
-            3) a random gene that isn't related to the gene
+            - the genes that regulates it
 
-        And we choose 5 genes from either category to up and down regulate and calculate the perturbation.
+            and then:
+            1) a random gene that isn't related to the gene in the GRN
+            2) a random gene that isn't related to the gene and is not in the GRN
 
-        TODO: We finish by plotting the distribution differences here
+            and repeat with
+            - the genes that it regulates
+
+        And we choose n genes from each category, and test both up and down regulating,
+        and calculate its perturbation.
+
+        In total we need to do: 2 (regulation direction) x 2 (up/down) x 3n (number of genes in each category) perturbations
+
+        Because this is likely a lot, we probably should just do n = 1 for now, which is 12 perturbations per gene, which is quite a bit.
         """
         logging.debug(f"Gene: {gene}")
         # First we do the TF regulating the gene
@@ -318,6 +340,69 @@ class MetaGRN(MetaMetric):
 
         if len(full_target_graph) > 0 and self.params["plot_grns"]:
             self._plot_graph(full_target_graph, gene, dataset_path, is_target=True)
+
+        def create_submetric_dicts(grn_genes, regulator_genes):
+            """
+            Create the 6 x n submetric configs for the perturbations we want to run for this gene.
+            Where we do the random genes + genes that regulate/are regulated
+            """
+
+            # first let's choose n random genes from regulator genes
+            chosen_regulator_genes = (
+                np.random.choice(
+                    regulator_genes, size=self.params["num_perturbs"], replace=False
+                )
+                if len(regulator_genes) >= self.params["num_perturbs"]
+                else regulator_genes
+            )
+
+            # get the tf/target based on what's available
+            chosen_regulator_genes = [
+                regulator_gene[
+                    self.grn.tf_col
+                    if self.grn.tf_col in regulator_gene
+                    else self.grn.gene_col
+                ]
+                for regulator_gene in chosen_regulator_genes
+            ]
+
+            # then let's choose n random genes that aren't in the GRN at all
+            random_grn_genes = list(set(overlapping_genes) - set(grn_genes))
+            chosen_random_grn_genes = (
+                np.random.choice(
+                    random_grn_genes, size=self.params["num_perturbs"], replace=False
+                )
+                if len(random_grn_genes) >= self.params["num_perturbs"]
+                else random_grn_genes
+            )
+
+            chosen_random_non_grn_genes = (
+                np.random.choice(
+                    non_overlapping_genes,
+                    size=self.params["num_perturbs"],
+                    replace=False,
+                )
+                if len(non_overlapping_genes) >= self.params["num_perturbs"]
+                else non_overlapping_genes
+            )
+
+            logging.debug(
+                f"Chosen regulator genes for perturbation: {chosen_regulator_genes}"
+            )
+            logging.debug(
+                f"Chosen random GRN genes for perturbation: {chosen_random_grn_genes}"
+            )
+            logging.debug(
+                f"Chosen random non-GRN genes for perturbation: {chosen_random_non_grn_genes}"
+            )
+
+        logging.debug(f"Gene: {gene}, TF graph")
+        create_submetric_dicts(self._genes_from_graph(full_tf_graph), regulating_tfs)
+
+        logging.debug(f"Gene: {gene}, Target graph")
+        create_submetric_dicts(
+            self._genes_from_graph(full_target_graph), regulated_genes
+        )
 
     def _genes_from_graph(self, graph):
         """
