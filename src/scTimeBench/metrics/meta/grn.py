@@ -1,6 +1,7 @@
 from scTimeBench.metrics.meta.base import MetaMetric
 from scTimeBench.shared.utils import load_train_dataset
 from scTimeBench.shared.dataset.base import BaseDataset
+from collections import deque
 
 import scanpy as sc
 import pandas as pd
@@ -21,6 +22,18 @@ class GRN:
             self.tf_col = "TF"
             self.gene_col = "Target"
             self.regulation = "Regulation"
+
+    def get_all_genes(self):
+        """
+        Get all unique genes in the GRN, including both TFs and target genes.
+
+        Returns:
+            Set of all unique genes in the GRN.
+        """
+        tf_genes = set(self.grn_df[self.tf_col].unique())
+        target_genes = set(self.grn_df[self.gene_col].unique())
+        all_genes = tf_genes.union(target_genes)
+        return all_genes
 
     def get_genes_from_tf(self, tf):
         """
@@ -54,6 +67,71 @@ class GRN:
         ]
         return gene_tfs.to_dict("records")
 
+    def get_full_graph(self, start_tf, choose_target):
+        """
+        Traverses the Gene Regulatory Network downstream from a starting TF
+        using Breadth-First Search (BFS).
+
+        Args:
+            start_tf (str): The initial transcription factor to start the
+            cascade from.
+            choose_target (bool): If True, traverse downstream to find target
+                                    genes. If False, traverse upstream to find
+                                    regulating TFs.
+
+        Returns:
+            List[dict]: A list of directed edges representing the full cascade
+                        network. Each item format: {'TF': ..., 'Target': ...,
+                        'Regulation': ...}
+        """
+        start_col = self.tf_col if choose_target else self.gene_col
+        target_col = self.gene_col if choose_target else self.tf_col
+
+        # If the starting TF doesn't exist in the network, exit early
+        if start_tf not in self.grn_df[start_col].values:
+            return []
+
+        full_graph_edges = []
+        visited_tfs = set()
+
+        # Queue contains TFs that we need to discover downstream targets for
+        queue = deque([start_tf])
+        visited_tfs.add(start_tf)
+
+        while queue:
+            current_tf = queue.popleft()
+
+            # Find all direct targets of the current TF
+            targets = (
+                self.get_genes_from_tf(current_tf)
+                if choose_target
+                else self.get_tfs_from_gene(current_tf)
+            )
+
+            for edge in targets:
+                target_gene = edge[target_col]
+                regulation_type = edge[self.regulation]
+
+                # Append the edge in a clean structural format
+                full_graph_edges.append(
+                    {
+                        start_col: current_tf,
+                        target_col: target_gene,
+                        self.regulation: regulation_type,
+                    }
+                )
+
+                # If the target gene is ALSO a TF itself and we haven't explored it yet,
+                # add it to the queue to trace the next layer of the cascade
+                if (
+                    target_gene in self.grn_df[start_col].values
+                    and target_gene not in visited_tfs
+                ):
+                    visited_tfs.add(target_gene)
+                    queue.append(target_gene)
+
+        return full_graph_edges
+
 
 class MetaGRN(MetaMetric):
     """
@@ -67,11 +145,11 @@ class MetaGRN(MetaMetric):
             "genes": None,
             "num_genes": 5,
             "gene_col_name": None,
+            "plot_grns": True,
         }
 
-    def _get_highly_variable_genes(self, output_path, n_top_genes):
+    def _get_highly_variable_genes(self, train_dataset, n_top_genes):
         """Get the top n highly variable genes from the dataset."""
-        train_dataset = load_train_dataset(output_path)
         # get the highly variable genes
         sc.pp.highly_variable_genes(
             train_dataset, n_top_genes=n_top_genes, flavor="seurat"
@@ -166,23 +244,131 @@ class MetaGRN(MetaMetric):
         """
         self.grn = GRN(grn_path=self.params["grn_path"])
 
+        # let's print out the overlap of genes
+        train_dataset = load_train_dataset(output_path)
+        genes_in_grn = self.grn.get_all_genes()
+        genes_in_dataset = set(
+            train_dataset.var[self.params["gene_col_name"]].tolist()
+            if self.params["gene_col_name"]
+            else train_dataset.var_names.tolist()
+        )
+
+        overlapping_genes = list(genes_in_grn.intersection(genes_in_dataset))
+        logging.debug(f"Number of genes in GRN: {len(genes_in_grn)}")
+        logging.debug(f"Number of genes in dataset: {len(genes_in_dataset)}")
+        logging.debug(f"Number of overlapping genes: {len(overlapping_genes)}")
+        logging.debug(f"Example overlapping genes: {overlapping_genes[:10]}")
+
+        # Filter rows in .var where the gene_col values are in our overlapping list
+        filtered_dataset = train_dataset[
+            :,
+            (
+                train_dataset.var[self.params["gene_col_name"]]
+                if self.params["gene_col_name"] is not None
+                else train_dataset.var_names
+            ).isin(overlapping_genes),
+        ].copy()
+
+        # 3. Log the new dataset shape to verify
+        logging.debug(f"Filtered dataset shape: {filtered_dataset.shape}")
+
         # Then we need to select the genes to perturb.
         # We either select the genes chosen in the parameters,
         # or select the top n highly variable genes in the dataset.
         genes = self.params["genes"]
         if genes is None or len(genes) == 0:
             genes = self._get_highly_variable_genes(
-                output_path, self.params["num_genes"]
+                filtered_dataset, self.params["num_genes"]
             )
 
-        exit()
-        # Now we need to first choose one of the more important genes
-        # i.e. a highly variable gene, and then figure out either:
-        # 1) the genes that regulate it
-        # 2) the genes that it regulates
-        # 3) a random gene that isn't related to the gene
-        # And we choose 5 genes from either category
-        # to up and down regulate and calculate the perturbation
+        # next we handle each gene itself
+        for gene in genes:
+            self._handle_gene(gene, dataset.get_test_dataset_dir())
 
-        # To do this, we will do t to t + 1 for all the cells
-        # and perturb it in this way instead
+    def _handle_gene(self, gene, dataset_path):
+        """
+        Given a certain gene, we find:
+            1) the genes that regulate it
+            2) the genes that it regulates
+            3) a random gene that isn't related to the gene
+
+        And we choose 5 genes from either category to up and down regulate and calculate the perturbation.
+
+        TODO: We finish by plotting the distribution differences here
+        """
+        logging.debug(f"Gene: {gene}")
+        # First we do the TF regulating the gene
+        regulating_tfs = self.grn.get_tfs_from_gene(gene)
+        full_tf_graph = self.grn.get_full_graph(gene, choose_target=False)
+        logging.debug(f"Regulating TFs: {regulating_tfs}")
+        logging.debug(
+            f"Full TF Graph length: {len(self._genes_from_graph(full_tf_graph))}"
+        )
+
+        if len(full_tf_graph) > 0 and self.params["plot_grns"]:
+            self._plot_graph(full_tf_graph, gene, dataset_path, is_target=False)
+
+        # Then we do the genes that are regulated by the gene
+        regulated_genes = self.grn.get_genes_from_tf(gene)
+        full_target_graph = self.grn.get_full_graph(gene, choose_target=True)
+        logging.debug(f"Regulated Genes: {regulated_genes}")
+        logging.debug(
+            f"Full Target Graph length: {len(self._genes_from_graph(full_target_graph))}"
+        )
+
+        if len(full_target_graph) > 0 and self.params["plot_grns"]:
+            self._plot_graph(full_target_graph, gene, dataset_path, is_target=True)
+
+    def _genes_from_graph(self, graph):
+        """
+        Given a list of edges, get the set of genes.
+        """
+        genes = set()
+        for edge in graph:
+            genes.add(edge[self.grn.tf_col])
+            genes.add(edge[self.grn.gene_col])
+        return genes
+
+    def _plot_graph(self, full_graph, gene, dataset_dir, is_target):
+        """
+        Given a full graph of the cascade, we plot it using networkx and save it to the output directory.
+        """
+        title = f"Full {'Target' if is_target else 'TF'} Graph for {gene}"
+        import networkx as nx
+        import matplotlib.pyplot as plt
+
+        G = nx.DiGraph()
+
+        logging.getLogger("matplotlib").setLevel(logging.WARNING)
+
+        for edge in full_graph:
+            G.add_edge(
+                edge[self.grn.tf_col],
+                edge[self.grn.gene_col],
+                regulation=edge[self.grn.regulation],
+            )
+
+        plt.figure(figsize=(10, 8))
+        pos = nx.spring_layout(G)
+        edge_colors = [
+            "green"
+            if G[u][v]["regulation"] == "Activation"
+            else ("red" if G[u][v]["regulation"] == "Repression" else "gray")
+            for u, v in G.edges()
+        ]
+        nx.draw(
+            G,
+            pos,
+            with_labels=True,
+            node_color="lightblue",
+            edge_color=edge_colors,
+            node_size=2000,
+            font_size=10,
+        )
+        plt.title(title)
+        dir_path = os.path.join(dataset_dir, "grn_plots", gene)
+        os.makedirs(dir_path, exist_ok=True)
+        plt.savefig(
+            os.path.join(dir_path, f"grn_cascade_{'target' if is_target else 'tf'}.png")
+        )
+        plt.close()
