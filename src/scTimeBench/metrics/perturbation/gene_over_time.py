@@ -98,7 +98,7 @@ class GlobalPerturbationGeneExpression(GlobalPerturbationBasedMetrics):
 
     def _submetric_eval(self, output_path, method):
         logging.debug(
-            f"Returning the average gene expression for the affected genes across time"
+            f"Returning the global gene expression for the affected genes across time"
         )
         genes = self.params["affected_genes"]
         logging.debug(f"Evaluating genes: {genes}")
@@ -107,6 +107,8 @@ class GlobalPerturbationGeneExpression(GlobalPerturbationBasedMetrics):
         # we will return a dictionary of the form:
         # gene -> timepoint -> expression data (list of expression values across cells)
         gene_expression_over_time = {}
+        # we also return gene -> expression data
+        gene_expression = {}
         eval_output_path = os.path.join(output_path, self._get_relative_output_path())
         perturbed_data = load_output_file(
             eval_output_path,
@@ -133,6 +135,7 @@ class GlobalPerturbationGeneExpression(GlobalPerturbationBasedMetrics):
             gene_col_idx = gene_names_list.index(gene)
             gene_expression_over_time[gene] = {}
 
+            gene_expression[gene] = perturbed_data[:, gene_col_idx].X
             # now let's calculate the average expression for this gene across samples
             # per timepoint
             for tp in tps:
@@ -141,4 +144,4 @@ class GlobalPerturbationGeneExpression(GlobalPerturbationBasedMetrics):
                 ]
                 gene_expression_over_time[gene][tp] = tp_data[:, gene_col_idx].X
 
-        return gene_expression_over_time
+        return gene_expression, gene_expression_over_time
