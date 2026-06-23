@@ -1,7 +1,9 @@
 from scTimeBench.metrics.meta.base import MetaMetric
 from scTimeBench.shared.utils import load_train_dataset
+from scTimeBench.shared.constants import ObservationColumns
 from scTimeBench.shared.dataset.base import BaseDataset
 from collections import deque
+from scipy.sparse import issparse
 
 import scanpy as sc
 import pandas as pd
@@ -237,6 +239,13 @@ class MetaGRN(MetaMetric):
 
         return top_n_genes_names
 
+    def _get_gene_col(self, dataset):
+        return (
+            dataset.var[self.params["gene_col_name"]]
+            if self.params["gene_col_name"]
+            else dataset.var_names
+        )
+
     def _submetric_eval(self, output_path, dataset: BaseDataset, method):
         """
         Run the submetric evaluation for GRN analyses.
@@ -254,11 +263,7 @@ class MetaGRN(MetaMetric):
         # let's print out the overlap of genes
         train_dataset = load_train_dataset(output_path)
         genes_in_grn = self.grn.get_all_genes()
-        genes_in_dataset = set(
-            train_dataset.var[self.params["gene_col_name"]].tolist()
-            if self.params["gene_col_name"]
-            else train_dataset.var_names.tolist()
-        )
+        genes_in_dataset = set(self._get_gene_col(train_dataset).tolist())
 
         overlapping_genes = sorted(list(genes_in_grn.intersection(genes_in_dataset)))
         logging.debug(f"Number of genes in GRN: {len(genes_in_grn)}")
@@ -272,11 +277,7 @@ class MetaGRN(MetaMetric):
         # Filter rows in .var where the gene_col values are in our overlapping list
         filtered_dataset = train_dataset[
             :,
-            (
-                train_dataset.var[self.params["gene_col_name"]]
-                if self.params["gene_col_name"] is not None
-                else train_dataset.var_names
-            ).isin(overlapping_genes),
+            self._get_gene_col(train_dataset).isin(overlapping_genes),
         ].copy()
 
         # 3. Log the new dataset shape to verify
@@ -472,6 +473,27 @@ class MetaGRN(MetaMetric):
         # where we plot the distribution for the gene -- let's collect all tps together though!
         logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
+        train_dataset = load_train_dataset(output_path)
+
+        # finally add the baseline here, where we have the baseline expression
+        # coming from the train dataset itself
+        # also check if it's sparse, if so, we need to convert it to dense
+
+        # we also need to make sure the lengths are the same,
+        # so we will be taking the 1st to second last timepoint
+        tps = sorted(
+            list(train_dataset.obs[ObservationColumns.TIMEPOINT.value].unique())
+        )
+        filtered_dataset = train_dataset[
+            train_dataset.obs[ObservationColumns.TIMEPOINT.value].isin(tps[:-1])
+        ]
+        baseline_gene_expr = filtered_dataset[
+            :, self._get_gene_col(filtered_dataset).isin([gene])
+        ].X
+        if issparse(baseline_gene_expr):
+            baseline_gene_expr = baseline_gene_expr.toarray()
+        baseline_gene_expr = baseline_gene_expr.flatten()
+
         for regulation_direction, results in perturbation_results.items():
             plt.figure(figsize=(12, 8))
             plot_data = {}
@@ -482,6 +504,8 @@ class MetaGRN(MetaMetric):
                     list(gene_expression.values())
                 ).flatten()
                 plot_data[perturbed_gene] = all_expression_values
+
+            plot_data["baseline"] = baseline_gene_expr
 
             plot_df = pd.DataFrame(plot_data)
 
@@ -500,6 +524,7 @@ class MetaGRN(MetaMetric):
                 )
             )
             plt.close()
+            exit()
 
     def _run_perturbation(self, gene, perturbed_gene, is_upregulate):
         """
