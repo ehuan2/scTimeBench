@@ -152,6 +152,7 @@ class MetaGRN(MetaMetric):
             "num_perturbs": 1,
             "gene_col_name": None,
             "plot_grns": False,
+            "use_hvgs": False,
         }
 
     def _get_highly_variable_genes(self, train_dataset, n_top_genes):
@@ -246,6 +247,38 @@ class MetaGRN(MetaMetric):
             else dataset.var_names
         )
 
+    def _resolve_genes(self, filtered_dataset, dataset):
+        """
+        Selects which genes to use for perturbation analysis
+        """
+        genes = self.params["genes"]
+        if genes is not None and len(genes) > 0:
+            return genes
+
+        if self.params["use_hvgs"]:
+            return self._get_highly_variable_genes(
+                filtered_dataset, self.params["num_genes"]
+            )
+
+        # collect the genes from perturbation lineages
+        assert (
+            dataset.cell_lineage_genes is not None
+        ), "Dataset must have cell_lineage_genes defined for perturbation analysis."
+        assert (
+            dataset.cell_lineage_genes.get("gene_col_name")
+            == self.params["gene_col_name"]
+        ), "Gene column name mismatch between dataset and config."
+
+        genes = []
+        for transition in dataset.cell_lineage_genes["cell_lineage_genes"]:
+            for end_cell in transition["targets"]:
+                genes.extend(end_cell["genes"])
+
+        genes = list(set(genes))  # remove duplicates
+
+        logging.debug(f"Genes from perturbation lineage: {genes}")
+        return genes
+
     def _submetric_eval(self, output_path, dataset: BaseDataset, method):
         """
         Run the submetric evaluation for GRN analyses.
@@ -286,11 +319,7 @@ class MetaGRN(MetaMetric):
         # Then we need to select the genes to perturb.
         # We either select the genes chosen in the parameters,
         # or select the top n highly variable genes in the dataset.
-        genes = self.params["genes"]
-        if genes is None or len(genes) == 0:
-            genes = self._get_highly_variable_genes(
-                filtered_dataset, self.params["num_genes"]
-            )
+        genes = self._resolve_genes(filtered_dataset, dataset)
 
         # next we handle each gene itself
         for gene in genes:
@@ -409,7 +438,9 @@ class MetaGRN(MetaMetric):
         # and if we're dealing with the gene being a TF
         # we need to make sure that the random gene is not in the TF graph of the target
         tf_graph_of_target = (
-            self.grn.get_full_graph(gene, choose_target=False) if is_gene_tf else []
+            self._genes_from_graph(self.grn.get_full_graph(gene, choose_target=False))
+            if is_gene_tf
+            else []
         )
 
         random_grn_genes = sorted(
@@ -475,7 +506,10 @@ class MetaGRN(MetaMetric):
         is_gene_tf,
     ):
         # this is a dictionary that is_gene_tf maps different keys to
-        self.gene_tf_target_dict = {"graph_type": "Target" if is_gene_tf else "TF"}
+        self.gene_tf_target_dict = {
+            "graph_type": "Target" if is_gene_tf else "TF",
+            "gene_type": "TF" if is_gene_tf else "Target",
+        }
 
         if len(full_graph) > 0 and self.params["plot_grns"]:
             self._plot_graph(full_graph, gene, dataset_path)
@@ -609,7 +643,7 @@ class MetaGRN(MetaMetric):
         plt.tight_layout()
         plt.savefig(
             os.path.join(
-                dir_path, f"gene_as_{self.gene_tf_target_dict['graph_type']}.png"
+                dir_path, f"gene_as_{self.gene_tf_target_dict['gene_type']}.png"
             )
         )
         plt.close()
