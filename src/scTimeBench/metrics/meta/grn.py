@@ -151,7 +151,7 @@ class MetaGRN(MetaMetric):
             "num_genes": 5,
             "num_perturbs": 1,
             "gene_col_name": None,
-            "plot_grns": True,
+            "plot_grns": False,
         }
 
     def _get_highly_variable_genes(self, train_dataset, n_top_genes):
@@ -302,73 +302,6 @@ class MetaGRN(MetaMetric):
                 output_path,
             )
 
-    def get_perturbation_genes(
-        self,
-        grn_genes,
-        regulator_genes,
-        overlapping_genes,
-        non_overlapping_genes,
-        is_target,
-    ):
-        """
-        Create the 6 x n submetric configs for the perturbations we want to run for this gene.
-        Where we do the random genes + genes that regulate/are regulated
-        """
-        # first let's choose n random genes from regulator genes
-        chosen_regulator_genes = (
-            np.random.choice(
-                regulator_genes, size=self.params["num_perturbs"], replace=False
-            )
-            if len(regulator_genes) >= self.params["num_perturbs"]
-            else regulator_genes
-        )
-
-        # get the tf/target based on what's available
-        chosen_regulator_genes = [
-            regulator_gene[
-                self.grn.tf_col
-                if self.grn.tf_col in regulator_gene
-                else self.grn.gene_col
-            ]
-            for regulator_gene in chosen_regulator_genes
-        ]
-
-        # then let's choose n random genes that aren't in the GRN at all
-        random_grn_genes = sorted(list(set(overlapping_genes) - set(grn_genes)))
-        chosen_random_grn_genes = (
-            np.random.choice(
-                random_grn_genes, size=self.params["num_perturbs"], replace=False
-            )
-            if len(random_grn_genes) >= self.params["num_perturbs"]
-            else random_grn_genes
-        )
-
-        chosen_random_non_grn_genes = (
-            np.random.choice(
-                non_overlapping_genes,
-                size=self.params["num_perturbs"],
-                replace=False,
-            )
-            if len(non_overlapping_genes) >= self.params["num_perturbs"]
-            else non_overlapping_genes
-        )
-
-        logging.debug(
-            f"Chosen regulator genes for perturbation: {chosen_regulator_genes}"
-        )
-        logging.debug(
-            f"Chosen random GRN genes for perturbation: {chosen_random_grn_genes}"
-        )
-        logging.debug(
-            f"Chosen random non-GRN genes for perturbation: {chosen_random_non_grn_genes}"
-        )
-
-        return {
-            f'{"tf" if not is_target else "target"}_gene': chosen_regulator_genes,
-            "random_grn_gene": chosen_random_grn_genes,
-            "random_non_grn_gene": chosen_random_non_grn_genes,
-        }
-
     def _handle_gene(
         self, gene, dataset_path, overlapping_genes, non_overlapping_genes, output_path
     ):
@@ -407,10 +340,10 @@ class MetaGRN(MetaMetric):
             non_overlapping_genes,
             dataset_path,
             output_path,
-            is_target=False,
+            is_gene_tf=False,
         )
 
-        # Then we do the genes that are regulated by the gene
+        # Then we do the gene being the TF
         regulated_genes = self.grn.get_genes_from_tf(gene)
         full_target_graph = self.grn.get_full_graph(gene, choose_target=True)
         logging.debug(f"Regulated Genes: {regulated_genes}")
@@ -418,7 +351,6 @@ class MetaGRN(MetaMetric):
             f"Full Target Graph length: {len(self._genes_from_graph(full_target_graph))}"
         )
 
-        # TODO: handle this differently! we want to perturb gene, not regulated_genes
         self._handle_tf_graphs(
             gene,
             regulated_genes,
@@ -427,8 +359,109 @@ class MetaGRN(MetaMetric):
             non_overlapping_genes,
             dataset_path,
             output_path,
-            is_target=True,
+            is_gene_tf=True,
         )
+
+    class GeneKeys:
+        RANDOM_GRN_GENE = "random_grn"
+        RANDOM_NON_GRN_GENE = "random_non_grn"
+        TARGET_RANDOM_GENE = "target_random"
+        TO_PERTURB = "tf"
+        TARGET_GENE = "target"
+
+    def _get_perturbation_genes(
+        self,
+        grn_genes,
+        regulator_genes,
+        overlapping_genes,
+        non_overlapping_genes,
+        is_gene_tf,
+        gene,
+    ):
+        """
+        Create the 6 x n submetric configs for the perturbations we want to run for this gene.
+        Where we do the random genes + genes that regulate/are regulated
+
+        Returns:
+            dict (str -> List[str]):
+                dictionary of different categories of genes to perturb
+        """
+        # first let's choose n random genes from regulator genes
+        chosen_regulator_genes = (
+            np.random.choice(
+                regulator_genes, size=self.params["num_perturbs"], replace=False
+            )
+            if len(regulator_genes) >= self.params["num_perturbs"]
+            else regulator_genes
+        )
+
+        # get the tf/target based on what's available
+        chosen_regulator_genes = [
+            regulator_gene[
+                self.grn.tf_col
+                if self.grn.tf_col in regulator_gene
+                else self.grn.gene_col
+            ]
+            for regulator_gene in chosen_regulator_genes
+        ]
+
+        # then let's choose n random genes that aren't in the GRN at all
+        # and if we're dealing with the gene being a TF
+        # we need to make sure that the random gene is not in the TF graph of the target
+        tf_graph_of_target = (
+            self.grn.get_full_graph(gene, choose_target=False) if is_gene_tf else []
+        )
+
+        random_grn_genes = sorted(
+            list(set(overlapping_genes) - set(grn_genes) - set(tf_graph_of_target))
+        )
+        chosen_random_grn_genes = (
+            np.random.choice(
+                random_grn_genes, size=self.params["num_perturbs"], replace=False
+            )
+            if len(random_grn_genes) >= self.params["num_perturbs"]
+            else random_grn_genes
+        )
+
+        # get n random genes not in the dataset
+        chosen_random_non_grn_genes = (
+            np.random.choice(
+                non_overlapping_genes,
+                size=self.params["num_perturbs"],
+                replace=False,
+            )
+            if len(non_overlapping_genes) >= self.params["num_perturbs"]
+            else non_overlapping_genes
+        )
+
+        # take a gene that is not from the GRN but still in the dataset
+        # that is not being perturbed
+        left_random_grn_genes = sorted(
+            list(set(random_grn_genes) - set(chosen_random_grn_genes))
+        )
+        to_measure_random_genes = (
+            np.random.choice(
+                left_random_grn_genes,
+                size=self.params["num_perturbs"],
+                replace=False,
+            )
+            if len(left_random_grn_genes) >= self.params["num_perturbs"]
+            else left_random_grn_genes
+        )
+
+        random_genes = {
+            self.GeneKeys.RANDOM_GRN_GENE: chosen_random_grn_genes,
+            self.GeneKeys.RANDOM_NON_GRN_GENE: chosen_random_non_grn_genes,
+            self.GeneKeys.TARGET_RANDOM_GENE: to_measure_random_genes,
+        }
+
+        return {
+            # we perturb the gene itself if the gene is a TF
+            # otherwise we perturb the regulator genes
+            self.GeneKeys.TO_PERTURB: [gene] if is_gene_tf else chosen_regulator_genes,
+            self.GeneKeys.TARGET_GENE: chosen_regulator_genes if is_gene_tf else [gene],
+            **random_genes,
+        }
 
     def _handle_tf_graphs(
         self,
@@ -439,35 +472,61 @@ class MetaGRN(MetaMetric):
         non_overlapping_genes,
         dataset_path,
         output_path,
-        is_target,
+        is_gene_tf,
     ):
-        if len(full_graph) > 0 and self.params["plot_grns"]:
-            self._plot_graph(full_graph, gene, dataset_path, is_target=is_target)
+        # this is a dictionary that is_gene_tf maps different keys to
+        self.gene_tf_target_dict = {"graph_type": "Target" if is_gene_tf else "TF"}
 
+        if len(full_graph) > 0 and self.params["plot_grns"]:
+            self._plot_graph(full_graph, gene, dataset_path)
+
+        # if there is no regulator genes, we can't do any perturbations, skip
         if len(regulator_genes) == 0:
             return
 
-        logging.debug(f"Gene: {gene}, {'TF' if not is_target else 'Target'} graph")
-        perturbed_genes = self.get_perturbation_genes(
+        logging.debug(f"Gene: {gene}, {self.gene_tf_target_dict['graph_type']} graph")
+        perturbed_genes = self._get_perturbation_genes(
             self._genes_from_graph(full_graph),
             regulator_genes,
             overlapping_genes,
             non_overlapping_genes,
-            is_target=is_target,
+            is_gene_tf=is_gene_tf,
+            gene=gene,
         )
 
         perturbation_results = {"upregulate": {}, "downregulate": {}}
 
-        # now let's do the perturbations for each category of genes
-        for category, genes_to_perturb in perturbed_genes.items():
-            for perturbed_gene in genes_to_perturb:
-                logging.debug(f"Perturbing {category} gene: {perturbed_gene}")
+        target_genes = np.concatenate(
+            (
+                perturbed_genes[self.GeneKeys.TARGET_RANDOM_GENE],
+                perturbed_genes[self.GeneKeys.TARGET_GENE],
+            )
+        )
+        to_perturb_keys = [
+            self.GeneKeys.TO_PERTURB,
+            self.GeneKeys.RANDOM_GRN_GENE,
+            self.GeneKeys.RANDOM_NON_GRN_GENE,
+        ]
+
+        logging.debug(
+            f"Genes to perturb: {[(key, perturbed_genes[key]) for key in to_perturb_keys]}"
+        )
+        logging.debug(f"Target genes: {target_genes}")
+
+        for key in to_perturb_keys:
+            for gene_to_perturb in perturbed_genes[key]:
+                logging.debug(
+                    f"Perturbing gene: {gene_to_perturb} for target genes: {target_genes}"
+                )
+                perturbation_results_for_gene = self._run_perturbation(
+                    target_genes=target_genes, perturbed_gene=gene_to_perturb
+                )
                 perturbation_results["upregulate"][
-                    f"{perturbed_gene}_{category}"
-                ] = self._run_perturbation(gene, perturbed_gene, is_upregulate=True)
+                    f"{key}_{gene_to_perturb}"
+                ] = perturbation_results_for_gene["upregulate"]
                 perturbation_results["downregulate"][
-                    f"{perturbed_gene}_{category}"
-                ] = self._run_perturbation(gene, perturbed_gene, is_upregulate=False)
+                    f"{key}_{gene_to_perturb}"
+                ] = perturbation_results_for_gene["downregulate"]
 
         # now let's plot both everything in upregulate and downregulate
         # where we plot the distribution for the gene -- let's collect all tps together though!
@@ -487,59 +546,101 @@ class MetaGRN(MetaMetric):
         filtered_dataset = train_dataset[
             train_dataset.obs[ObservationColumns.TIMEPOINT.value].isin(tps[:-1])
         ]
-        baseline_gene_expr = filtered_dataset[
-            :, self._get_gene_col(filtered_dataset).isin([gene])
-        ].X
-        if issparse(baseline_gene_expr):
-            baseline_gene_expr = baseline_gene_expr.toarray()
-        baseline_gene_expr = baseline_gene_expr.flatten()
 
-        for regulation_direction, results in perturbation_results.items():
-            plt.figure(figsize=(12, 8))
-            plot_data = {}
+        # now let's do this so that we plot side by side all the target genes!
+        num_cols = len(target_genes)
+        num_rows = len(list(perturbation_results.keys()))
 
-            for perturbed_gene, (gene_expression, _) in results.items():
-                # we will plot the distribution of expression across all timepoints for this gene
-                all_expression_values = np.concatenate(
-                    list(gene_expression.values())
-                ).flatten()
-                plot_data[perturbed_gene] = all_expression_values
-
-            plot_data["baseline"] = baseline_gene_expr
-
-            plot_df = pd.DataFrame(plot_data)
-
-            sns.kdeplot(data=plot_df, fill=True, alpha=0.3, palette="Set2")
-
-            plt.title(
-                f"Distribution of expression values for {gene} when {regulation_direction} different genes"
+        if num_cols == 0 or num_rows == 0:
+            logging.warning(
+                f"No target genes or perturbation results to plot for gene: {gene}. Skipping plotting."
             )
-            plt.xlabel("Expression value")
-            plt.ylabel("Estimated Density")
-            dir_path = os.path.join(output_path, "gene_dist_plots", gene)
-            os.makedirs(dir_path, exist_ok=True)
-            plt.savefig(
-                os.path.join(
-                    dir_path, f"{regulation_direction}_perturbation_distribution.png"
+            return
+
+        fig, axes = plt.subplots(
+            num_rows,
+            num_cols,
+            figsize=(5 * num_cols, 4 * num_rows),
+            sharex=True,
+            sharey=True,
+            squeeze=False,
+        )
+
+        for row, (regulation_direction, results) in enumerate(
+            perturbation_results.items()
+        ):
+            for col, target_gene in enumerate(target_genes):
+                ax = axes[row][col]
+
+                plot_data = {}
+
+                for perturbed_gene, (gene_expression, _) in results.items():
+                    # we will plot the distribution of expression across all timepoints for this gene
+                    all_expression_values = np.concatenate(
+                        list(gene_expression[target_gene])
+                    ).flatten()
+                    plot_data[perturbed_gene] = all_expression_values
+
+                baseline_gene_expr = filtered_dataset[
+                    :, self._get_gene_col(filtered_dataset).isin([target_gene])
+                ].X
+                if issparse(baseline_gene_expr):
+                    baseline_gene_expr = baseline_gene_expr.toarray()
+                baseline_gene_expr = baseline_gene_expr.flatten()
+
+                plot_data["baseline"] = baseline_gene_expr
+
+                plot_df = pd.DataFrame(plot_data)
+
+                sns.kdeplot(data=plot_df, fill=True, alpha=0.3, palette="Set2", ax=ax)
+
+                is_random = (
+                    target_gene in perturbed_genes[self.GeneKeys.TARGET_RANDOM_GENE]
                 )
-            )
-            plt.close()
-            exit()
 
-    def _run_perturbation(self, gene, perturbed_gene, is_upregulate):
+                ax.set_title(
+                    f"{'Random' if is_random else ''} {target_gene} when {regulation_direction}"
+                )
+                ax.set_xlabel("Expression value")
+                ax.set_ylabel(f"Estimated Density of {target_gene} expression")
+
+        dir_path = os.path.join(output_path, "gene_dist_plots", gene)
+        os.makedirs(dir_path, exist_ok=True)
+        plt.tight_layout()
+        plt.savefig(
+            os.path.join(
+                dir_path, f"gene_as_{self.gene_tf_target_dict['graph_type']}.png"
+            )
+        )
+        plt.close()
+
+    def _run_perturbation(self, target_genes, perturbed_gene):
         """
         Run the perturbation for a given gene and label in both up/down regulation.
         """
-        submetric_dict = {
-            "name": "GlobalPerturbationGeneExpression",
-            "affected_genes": [str(gene)],
-            "perturbation_set_config": {
-                "gene_col_name": self.params["gene_col_name"],
-                "knockin_genes": [str(perturbed_gene)] if is_upregulate else [],
-                "knockout_genes": [str(perturbed_gene)] if not is_upregulate else [],
-            },
+
+        def _run_single_perturbation(target_genes, perturbed_gene, is_upregulate):
+            submetric_dict = {
+                "name": "GlobalPerturbationGeneExpression",
+                "affected_genes": [str(target_gene) for target_gene in target_genes],
+                "perturbation_set_config": {
+                    "gene_col_name": self.params["gene_col_name"],
+                    "knockin_genes": [str(perturbed_gene)] if is_upregulate else [],
+                    "knockout_genes": [str(perturbed_gene)]
+                    if not is_upregulate
+                    else [],
+                },
+            }
+            return self._run_submetric(submetric_dict)
+
+        return {
+            "upregulate": _run_single_perturbation(
+                target_genes, perturbed_gene, is_upregulate=True
+            ),
+            "downregulate": _run_single_perturbation(
+                target_genes, perturbed_gene, is_upregulate=False
+            ),
         }
-        return self._run_submetric(submetric_dict)
 
     def _genes_from_graph(self, graph):
         """
@@ -551,11 +652,11 @@ class MetaGRN(MetaMetric):
             genes.add(edge[self.grn.gene_col])
         return sorted(list(genes))
 
-    def _plot_graph(self, full_graph, gene, dataset_dir, is_target):
+    def _plot_graph(self, full_graph, gene, dataset_dir):
         """
         Given a full graph of the cascade, we plot it using networkx and save it to the output directory.
         """
-        title = f"Full {'Target' if is_target else 'TF'} Graph for {gene}"
+        title = f"Full {self.gene_tf_target_dict['graph_type']} Graph for {gene}"
 
         G = nx.DiGraph()
 
@@ -589,6 +690,9 @@ class MetaGRN(MetaMetric):
         dir_path = os.path.join(dataset_dir, "grn_plots", gene)
         os.makedirs(dir_path, exist_ok=True)
         plt.savefig(
-            os.path.join(dir_path, f"grn_cascade_{'target' if is_target else 'tf'}.png")
+            os.path.join(
+                dir_path,
+                f"grn_cascade_{self.gene_tf_target_dict['graph_type'].lower()}.png",
+            )
         )
         plt.close()
