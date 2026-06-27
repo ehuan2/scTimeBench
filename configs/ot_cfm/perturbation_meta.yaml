@@ -9,6 +9,8 @@ metrics:
   # - name: MetaPerturbation
   - name: MetaGRN
     gene_col_name: gene_symbols
+    grn_path: ./grn_data/resources/inferred_grn/garcia_alonso_correlation_intersection.tsv
+    use_hvgs: True
   # - name: StackedBarPlot
   # - name: StackedBarPlot
   #   from_tp_zero: True

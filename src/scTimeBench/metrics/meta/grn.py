@@ -151,7 +151,7 @@ class MetaGRN(MetaMetric):
             "num_genes": 5,
             "num_perturbs": 1,
             "gene_col_name": None,
-            "plot_grns": False,
+            "plot_grns": True,
             "use_hvgs": False,
         }
 
@@ -277,6 +277,14 @@ class MetaGRN(MetaMetric):
         genes = list(set(genes))  # remove duplicates
 
         logging.debug(f"Genes from perturbation lineage: {genes}")
+
+        if len(genes) == 0:
+            raise ValueError(
+                "No genes found from perturbation lineage. "
+                "Please ensure that the GRN has enough genes, to use the use_hvgs flag "
+                "or to specify genes in the config."
+            )
+
         return genes
 
     def _submetric_eval(self, output_path, dataset: BaseDataset, method):
@@ -638,7 +646,13 @@ class MetaGRN(MetaMetric):
                 ax.set_xlabel("Expression value")
                 ax.set_ylabel(f"Estimated Density of {target_gene} expression")
 
-        dir_path = os.path.join(output_path, "gene_dist_plots", gene)
+        # make this grn specific, i.e. take the tsv file name and use its root
+        dir_path = os.path.join(
+            output_path,
+            "gene_dist_plots",
+            os.path.splitext(os.path.basename(self.params["grn_path"]))[0],
+            gene,
+        )
         os.makedirs(dir_path, exist_ok=True)
         plt.tight_layout()
         plt.savefig(
@@ -705,12 +719,23 @@ class MetaGRN(MetaMetric):
 
         plt.figure(figsize=(10, 8))
         pos = nx.spring_layout(G)
-        edge_colors = [
-            "green"
-            if G[u][v]["regulation"] == "Activation"
-            else ("red" if G[u][v]["regulation"] == "Repression" else "gray")
-            for u, v in G.edges()
-        ]
+
+        def get_edge_color(regulation):
+            if isinstance(regulation, str):
+                if regulation.lower() == "activation":
+                    return "green"
+                elif regulation.lower() == "repression":
+                    return "red"
+            # check if the type is numeric
+            elif isinstance(regulation, (int, float)):
+                if regulation > 0:
+                    return "green"
+                elif regulation < 0:
+                    return "red"
+            return "gray"  # default color for unknown regulation types
+
+        edge_colors = [get_edge_color(G[u][v]["regulation"]) for u, v in G.edges()]
+
         nx.draw(
             G,
             pos,
