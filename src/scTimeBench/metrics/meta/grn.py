@@ -1,7 +1,8 @@
 from scTimeBench.metrics.meta.base import MetaMetric
-from scTimeBench.shared.utils import load_train_dataset
+from scTimeBench.shared.utils import load_test_dataset
 from scTimeBench.shared.constants import ObservationColumns
 from scTimeBench.shared.dataset.base import BaseDataset
+from scTimeBench.shared.perturbation_set import GlobalPerturbationSet
 from collections import deque
 from scipy.sparse import issparse
 
@@ -151,9 +152,15 @@ class MetaGRN(MetaMetric):
             "num_genes": 5,
             "num_perturbs": 1,
             "gene_col_name": None,
-            "plot_grns": True,
+            "plot_grns": False,
             "use_hvgs": False,
+            # by default don't filter by cell type, but if specified
+            # we will filter by that cell type
+            "cell_type": None,
         }
+
+    def _cell_type_path(self):
+        return "all" if self.params["cell_type"] is None else self.params["cell_type"]
 
     def _get_highly_variable_genes(self, train_dataset, n_top_genes):
         """Get the top n highly variable genes from the dataset."""
@@ -271,6 +278,11 @@ class MetaGRN(MetaMetric):
 
         genes = []
         for transition in dataset.cell_lineage_genes["cell_lineage_genes"]:
+            if (
+                self.params["cell_type"] is not None
+                and transition["start"] != self.params["cell_type"]
+            ):
+                continue
             for end_cell in transition["targets"]:
                 genes.extend(end_cell["genes"])
 
@@ -302,9 +314,9 @@ class MetaGRN(MetaMetric):
         self.grn = GRN(grn_path=self.params["grn_path"])
 
         # let's print out the overlap of genes
-        train_dataset = load_train_dataset(output_path)
+        test_dataset = load_test_dataset(output_path)
         genes_in_grn = self.grn.get_all_genes()
-        genes_in_dataset = set(self._get_gene_col(train_dataset).tolist())
+        genes_in_dataset = set(self._get_gene_col(test_dataset).tolist())
 
         overlapping_genes = sorted(list(genes_in_grn.intersection(genes_in_dataset)))
         logging.debug(f"Number of genes in GRN: {len(genes_in_grn)}")
@@ -316,9 +328,9 @@ class MetaGRN(MetaMetric):
         non_overlapping_genes = sorted(list(genes_in_dataset.difference(genes_in_grn)))
 
         # Filter rows in .var where the gene_col values are in our overlapping list
-        filtered_dataset = train_dataset[
+        filtered_dataset = test_dataset[
             :,
-            self._get_gene_col(train_dataset).isin(overlapping_genes),
+            self._get_gene_col(test_dataset).isin(overlapping_genes),
         ].copy()
 
         # 3. Log the new dataset shape to verify
@@ -502,6 +514,9 @@ class MetaGRN(MetaMetric):
             **random_genes,
         }
 
+    def _grn_path(self):
+        return os.path.splitext(os.path.basename(self.params["grn_path"]))[0]
+
     def _handle_tf_graphs(
         self,
         gene,
@@ -574,19 +589,19 @@ class MetaGRN(MetaMetric):
         # where we plot the distribution for the gene -- let's collect all tps together though!
         logging.getLogger("matplotlib").setLevel(logging.WARNING)
 
-        train_dataset = load_train_dataset(output_path)
-
         # finally add the baseline here, where we have the baseline expression
-        # coming from the train dataset itself
-        # also check if it's sparse, if so, we need to convert it to dense
+        test_dataset = load_test_dataset(output_path)
+        # used to ensure that the preprocessing is the same
+        global_perturb = GlobalPerturbationSet({"cell_type": self.params["cell_type"]})
+        test_dataset = global_perturb.preprocess(test_dataset.copy())
 
         # we also need to make sure the lengths are the same,
         # so we will be taking the 1st to second last timepoint
         tps = sorted(
-            list(train_dataset.obs[ObservationColumns.TIMEPOINT.value].unique())
+            list(test_dataset.obs[ObservationColumns.TIMEPOINT.value].unique())
         )
-        filtered_dataset = train_dataset[
-            train_dataset.obs[ObservationColumns.TIMEPOINT.value].isin(tps[:-1])
+        filtered_dataset = test_dataset[
+            test_dataset.obs[ObservationColumns.TIMEPOINT.value].isin(tps[:-1])
         ]
 
         # now let's do this so that we plot side by side all the target genes!
@@ -641,7 +656,8 @@ class MetaGRN(MetaMetric):
                 )
 
                 ax.set_title(
-                    f"{'Random' if is_random else ''} {target_gene} when {regulation_direction}"
+                    f"{'Random' if is_random else ''} {target_gene} when {regulation_direction} for "
+                    f"{self._cell_type_path()}"
                 )
                 ax.set_xlabel("Expression value")
                 ax.set_ylabel(f"Estimated Density of {target_gene} expression")
@@ -650,7 +666,8 @@ class MetaGRN(MetaMetric):
         dir_path = os.path.join(
             output_path,
             "gene_dist_plots",
-            os.path.splitext(os.path.basename(self.params["grn_path"]))[0],
+            self._grn_path(),
+            self._cell_type_path(),
             gene,
         )
         os.makedirs(dir_path, exist_ok=True)
@@ -677,6 +694,7 @@ class MetaGRN(MetaMetric):
                     "knockout_genes": [str(perturbed_gene)]
                     if not is_upregulate
                     else [],
+                    "cell_type": self.params["cell_type"],
                 },
             }
             return self._run_submetric(submetric_dict)
@@ -746,7 +764,7 @@ class MetaGRN(MetaMetric):
             font_size=10,
         )
         plt.title(title)
-        dir_path = os.path.join(dataset_dir, "grn_plots", gene)
+        dir_path = os.path.join(dataset_dir, "grn_plots", self._grn_path(), gene)
         os.makedirs(dir_path, exist_ok=True)
         plt.savefig(
             os.path.join(

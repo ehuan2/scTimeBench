@@ -14,21 +14,11 @@ import scanpy as sc
 
 
 def apply_perturbation_to_anndata(
-    ann_data, gene_col_name, knockout_genes, knockin_genes, cell_type
+    ann_data, gene_col_name, knockout_genes, knockin_genes
 ):
     """
     Apply the perturbation specified to ann_data
     """
-    # first filter for the cell type specified
-    if cell_type is not None:
-        ann_data = ann_data[
-            ann_data.obs[ObservationColumns.CELL_TYPE.value] == cell_type
-        ]
-        if ann_data.n_obs == 0:
-            raise ValueError(
-                f"No cells found for cell type {cell_type} in the data. Double check your cell type names used."
-            )
-
     if gene_col_name is None:
         gene_names = list(ann_data.var_names)
     else:
@@ -180,7 +170,7 @@ class PerturbationSet:
             return ann_data
 
         ann_data = apply_perturbation_to_anndata(
-            ann_data, self.gene_col_name, knockout_genes, knockin_genes, None
+            ann_data, self.gene_col_name, knockout_genes, knockin_genes
         )
         return ann_data
 
@@ -248,12 +238,24 @@ class GlobalPerturbationSet:
     def perturbation_path(self):
         return os.path.join("perturbations", self.encode())
 
+    def preprocess(self, ann_data):
+        # first filter for the cell type specified
+        if self.cell_type is not None:
+            ann_data = ann_data[
+                ann_data.obs[ObservationColumns.CELL_TYPE.value] == self.cell_type
+            ]
+            if ann_data.n_obs == 0:
+                raise ValueError(
+                    f"No cells found for cell type {self.cell_type} in the data. Double check your cell type names used."
+                )
+        return ann_data
+
     def apply_perturbation(self, ann_data):
         # this applies the same perturbation to all timepoints, so we just call the PerturbationSet's apply_perturbation
+        ann_data = self.preprocess(ann_data)
         return apply_perturbation_to_anndata(
             ann_data,
             self.gene_col_name,
             self.knockout_genes,
             self.knockin_genes,
-            self.cell_type,
         )
