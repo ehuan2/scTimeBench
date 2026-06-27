@@ -329,11 +329,13 @@ class BaseMethod:
             perturbation_set_config = yaml.safe_load(f)
         perturbation_set = GlobalPerturbationSet(perturbation_set_config)
 
-        # first let's get the timepoints
-        all_tps = sorted(test_ann_data.obs[ObservationColumns.TIMEPOINT.value].unique())
-
         # now let's move everything from t to t + 1
         test_ann_data = perturbation_set.apply_perturbation(test_ann_data)
+
+        # get all the timepoints after the perturbation has been applied
+        # so that any filtering can be applied correctly
+        all_tps = sorted(test_ann_data.obs[ObservationColumns.TIMEPOINT.value].unique())
+
         final_ann_data = None
         for t_idx in range(len(all_tps) - 1):
             t = all_tps[t_idx]

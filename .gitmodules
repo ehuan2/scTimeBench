@@ -21,3 +21,6 @@
 [submodule "extern/sceptic"]
 	path = extern/sceptic
 	url = git@github.com:ehuan2/Sceptic.git
+[submodule "extern/genernib"]
+	path = extern/genernib
+	url = git@github.com:ehuan2/task_grn_inference.git

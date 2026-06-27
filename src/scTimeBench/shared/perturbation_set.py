@@ -14,11 +14,21 @@ import scanpy as sc
 
 
 def apply_perturbation_to_anndata(
-    ann_data, gene_col_name, knockout_genes, knockin_genes
+    ann_data, gene_col_name, knockout_genes, knockin_genes, cell_type
 ):
     """
     Apply the perturbation specified to ann_data
     """
+    # first filter for the cell type specified
+    if cell_type is not None:
+        ann_data = ann_data[
+            ann_data.obs[ObservationColumns.CELL_TYPE.value] == cell_type
+        ]
+        if ann_data.n_obs == 0:
+            raise ValueError(
+                f"No cells found for cell type {cell_type} in the data. Double check your cell type names used."
+            )
+
     if gene_col_name is None:
         gene_names = list(ann_data.var_names)
     else:
@@ -170,7 +180,7 @@ class PerturbationSet:
             return ann_data
 
         ann_data = apply_perturbation_to_anndata(
-            ann_data, self.gene_col_name, knockout_genes, knockin_genes
+            ann_data, self.gene_col_name, knockout_genes, knockin_genes, None
         )
         return ann_data
 
@@ -206,6 +216,7 @@ class GlobalPerturbationSet:
     gene_col_name: ...
     knockin_genes: [...]
     knockout_genes: [...]
+    cell_type: ...
     """
 
     def __init__(self, perturbation_config: Dict):
@@ -215,6 +226,7 @@ class GlobalPerturbationSet:
         self.gene_col_name = perturbation_config.get("gene_col_name", None)
         self.knockin_genes = perturbation_config.get("knockin_genes", [])
         self.knockout_genes = perturbation_config.get("knockout_genes", [])
+        self.cell_type = perturbation_config.get("cell_type", None)
 
     def get_genes(self):
         """
@@ -239,5 +251,9 @@ class GlobalPerturbationSet:
     def apply_perturbation(self, ann_data):
         # this applies the same perturbation to all timepoints, so we just call the PerturbationSet's apply_perturbation
         return apply_perturbation_to_anndata(
-            ann_data, self.gene_col_name, self.knockout_genes, self.knockin_genes
+            ann_data,
+            self.gene_col_name,
+            self.knockout_genes,
+            self.knockin_genes,
+            self.cell_type,
         )
